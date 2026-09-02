@@ -1,3 +1,4 @@
 /target
 /crates/ntsc-oracle/vendor
 /goldens
+/captures

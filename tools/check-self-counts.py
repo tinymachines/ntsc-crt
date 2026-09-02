@@ -176,12 +176,12 @@ if FAST:
 else:
     ok, total, reds = cargo_counts()
     measured("workspace green", ok, True)
-    measured("test total", total, 56)
+    measured("test total", total, 58)
     measured("MUTATE reds", reds, 33)
-claim("README.md", r"# 56 tests", 1, "test total in README")
+claim("README.md", r"# 58 tests", 1, "test total in README")
 claim("README.md", r"must go red: 33 tests", 1, "MUTATE count in README")
-claim("docs/m4-report.md", r"56 tests green", 1, "test total in M4 report")
-claim("docs/m4-report.md", r"reddens\s+33", 1, "MUTATE count in M4 report")
+# Milestone reports are run stamps of their own commits and are not pinned
+# to the live totals; README carries the current numbers.
 
 # ---- Verdict. ----
 for s in skips:

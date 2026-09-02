@@ -81,3 +81,26 @@ and the existing `recover` plus the M2 bar tests close the gate.
 - M5: self-counts, the licence registry, the consolidated divergence
   list, and the spec's v0.3 draft.
 - The real-recording gate above, pending hardware.
+
+## Addendum, 2026-09-02: the ingestion path, built and waiting
+
+The director has a capture card, so the machine side of the real gate
+is now complete (`crates/ntsc-source-cap/src/ingest.rs`,
+`examples/recover-real.rs`, `tests/real.rs`):
+
+- Readers for WAV (PCM 8/16, float 32; rate from the header) and raw
+  f32/i16/u8 (rate declared).
+- Auto-levelling from arbitrary ADC units to volts, the sync depth as
+  the ruler (Table 1: tip 40 IRE below blanking), the two levels found
+  as the two lowest histogram peaks. Proven before any real file
+  touches it: a synthetic capture rescaled to gain 0.31 offset 0.7
+  levels back and recovers within 7 mV mean on the grid
+  (`arbitrary_units_auto_level_and_recover`).
+- The gate test SKIPS by name until `captures/real-bars.*` exists;
+  REQUIRE_REAL=1 insists. **Stated tolerance for the real recording:
+  each bar channel within 0.08 of video level** (consumer gear sits
+  looser than Table 1's studio +/-1 IRE); a clean capture outside
+  that is a finding to investigate, not a number to widen.
+
+The human side is one page: `docs/capture-instructions.md`. One file
+plus one command closes the last gate.

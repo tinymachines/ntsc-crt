@@ -26,6 +26,8 @@
 //!    interpolation), then re-reference DC so the measured back porch
 //!    sits at blanking.
 
+pub mod ingest;
+
 use ntsc_grid::{CompositeFrame, CompositeLine, FrameParity, Geometry, Phase};
 use ntsc_source_rgb::layout;
 

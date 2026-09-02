@@ -16,8 +16,8 @@ is source-agnostic, has an oracle, and has a way to fail.
 All six milestones of the handoff spec are built and closed: M0 (grid
 and contract), M1 (NES encode, Rung A decode, blargg golden), M2 (RGB
 encode, the comb rungs, WASM, the measured budget), M3 (the CRT
-stages), M4 (the capture source; its real-recording half waits on
-hardware) and M5 (self-counts, `docs/divergences.md`, the spec's v0.3
+stages), M4 (the capture source; its real-recording half is one
+capture file away, docs/capture-instructions.md) and M5 (self-counts, `docs/divergences.md`, the spec's v0.3
 draft). The milestone logs are `docs/m0-report.md` through
 `docs/m5-report.md`. Nine crates:
 
@@ -41,7 +41,7 @@ diffed clean on every numeric field.
 ## Commands
 
 ```bash
-cargo test --workspace              # 56 tests: residues, data consistency,
+cargo test --workspace              # 58 tests: residues, data consistency,
                                     # encoder waveform, Rung A physics, and
                                     # (with the vendor fetched) the blargg
                                     # golden; the oracle tests SKIP without
@@ -64,5 +64,10 @@ python3 tools/diff-transcriptions.py # the M0 two-transcription gate
 python3 tools/check-self-counts.py   # every counted claim in the docs vs a
                                      # fresh measurement (--fast skips the
                                      # cargo rows; REQUIRE_ALL=1 insists)
+cargo run --release -p ntsc-source-cap --example recover-real -- \
+    captures/real-bars.wav wav '' --bars   # M4's real-recording gate, once a
+                                     # capture exists (docs/capture-instructions.md);
+                                     # the test half SKIPS without it, REQUIRE_REAL=1
+                                     # insists
 cargo clippy --workspace --all-targets
 ```
