@@ -4,7 +4,7 @@ Signal-level NTSC encode, decode, and CRT display simulation. Rust core,
 pure CPU, headed for WASM writing RGBA to a canvas. Companion to the
 [tinymachines 6502](https://github.com/tinymachines/6502) engine ladder.
 
-The design is `docs/ntsc-crt-handoff-v0_2.md`; the milestone log is
+The design is `docs/ntsc-crt-handoff-v0_3.md` (ratified 2026-09-02; v0.2 kept for the record); the milestone log is
 `docs/m0-report.md` onward. The short version of the design: the composite
 sample (12 per colour subcarrier cycle, at exactly 12 x 315/88 MHz) is the
 native unit, three sources (NES dot stream, RGB framebuffer, captured

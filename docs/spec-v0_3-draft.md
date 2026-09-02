@@ -1,7 +1,9 @@
 # ntsc-crt handoff spec: v0.3 draft
 
 Drafted 2026-09-01 by the implementing agent, from measurement, for the
-director to ratify. This is a change list against v0.2
+director to ratify. **Ratified by the director 2026-09-02**; the
+operative document is now `docs/ntsc-crt-handoff-v0_3.md`, and this
+file remains as the record of what changed and why. This is a change list against v0.2
 (`docs/ntsc-crt-handoff-v0_2.md`), in the spirit of that document's own
 status line: every pre-computed value was a claim for a test to
 confirm, and three did not survive confirmation. Citations point at the
