@@ -16,63 +16,20 @@
 //!   are sync level except a blank window at dots 254..286. Its purpose is
 //!   sync detection, which is M4's capture source.
 
-use ntsc_grid::{CompositeFrame, CompositeLine, CompositeSource, FrameParity, Geometry, Phase};
+use ntsc_grid::{CompositeFrame, CompositeLine, CompositeSource, Geometry, Phase};
 
 pub mod levels {
     //! Constants generated from the gated transcription. See build.rs.
     include!(concat!(env!("OUT_DIR"), "/levels.rs"));
 }
 
-pub const DOTS_PER_LINE: usize = 341;
-pub const LINES: usize = 262;
-pub const SAMPLES_PER_DOT: usize = 8;
-pub const ACTIVE_FIRST_DOT: usize = 1;
-pub const ACTIVE_DOTS: usize = 256;
-pub const ACTIVE_ROWS: usize = 240;
-
-/// One frame of PPU output: colour index (6-bit, $00..$3F) and emphasis
-/// (3-bit, PPUMASK bits 5..7) per dot, row-major, always 341 x 262 (the
-/// skipped dot of an OddShort frame is simply not read).
-#[derive(Clone, Debug)]
-pub struct DotFrame {
-    pub parity: FrameParity,
-    pub colour: Vec<u8>,
-    pub emphasis: Vec<u8>,
-}
-
-impl DotFrame {
-    pub fn filled(parity: FrameParity, colour: u8, emphasis: u8) -> DotFrame {
-        DotFrame {
-            parity,
-            colour: vec![colour; DOTS_PER_LINE * LINES],
-            emphasis: vec![emphasis; DOTS_PER_LINE * LINES],
-        }
-    }
-
-    pub fn at(&self, row: usize, dot: usize) -> (u8, u8) {
-        let i = row * DOTS_PER_LINE + dot;
-        (self.colour[i], self.emphasis[i])
-    }
-
-    pub fn set(&mut self, row: usize, dot: usize, colour: u8, emphasis: u8) {
-        let i = row * DOTS_PER_LINE + dot;
-        self.colour[i] = colour;
-        self.emphasis[i] = emphasis;
-    }
-
-    /// The 256 x 240 active region as blargg-style 9-bit entries
-    /// (emphasis << 6 | colour), row-major: what the oracle eats.
-    pub fn active_entries(&self) -> Vec<u16> {
-        let mut out = Vec::with_capacity(ACTIVE_DOTS * ACTIVE_ROWS);
-        for row in 0..ACTIVE_ROWS {
-            for dot in ACTIVE_FIRST_DOT..ACTIVE_FIRST_DOT + ACTIVE_DOTS {
-                let (c, e) = self.at(row, dot);
-                out.push(((e as u16) << 6) | c as u16);
-            }
-        }
-        out
-    }
-}
+/// The dot-stream waist moved to `nes-bus`, the console's contract
+/// crate: the PPU ladder produces `DotFrame` and this crate consumes it,
+/// so neither side may own it. These re-exports keep every existing path
+/// compiling.
+pub use nes_bus::{
+    DotFrame, ACTIVE_DOTS, ACTIVE_FIRST_DOT, ACTIVE_ROWS, DOTS_PER_LINE, LINES, SAMPLES_PER_DOT,
+};
 
 /// Wave `w` (a colour number 1..=12; 0 and 12 coincide) is high at sample
 /// phase `p`: the page's `InColorPhase`, `(w + p) mod 12 < 6`.

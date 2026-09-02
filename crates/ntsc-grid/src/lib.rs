@@ -65,15 +65,13 @@ pub enum Profile {
     Broadcast,
 }
 
-/// Frame parity. `OddShort` is the NES odd frame with rendering enabled,
-/// which drops dot 340 from the pre-render line; it does not exist on the
-/// broadcast profile, and the geometry refuses it there by name.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum FrameParity {
-    Even,
-    OddFull,
-    OddShort,
-}
+/// Frame parity: the PPU emits it and the encoder consumes it, so its
+/// home moved to `nes-bus`, the console's contract crate; this re-export
+/// keeps every existing path compiling. `OddShort` is the NES odd frame
+/// with rendering enabled, which drops dot 340 from the pre-render line;
+/// it does not exist on the broadcast profile, and the geometry refuses
+/// it there by name.
+pub use nes_bus::FrameParity;
 
 /// Frame geometry: line count, line length, and where the short line is.
 /// Phase arithmetic lives here and nowhere else.
