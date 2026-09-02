@@ -1,0 +1,15 @@
+[package]
+name = "ntsc-crt"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "LinearRgbFrame to DisplayFrame: beam, scanlines, phosphor persistence, mask, geometry. A model with analytic tests, and honest about being one: every parameter is authored and says so."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-decode = { path = "../ntsc-decode" }
+
+[dev-dependencies]
+ntsc-source-nes = { path = "../ntsc-source-nes" }
+ntsc-testgen = { path = "../ntsc-testgen" }
+ntsc-wasm = { path = "../ntsc-wasm" }

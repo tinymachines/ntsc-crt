@@ -8,4 +8,5 @@ members = [
     "crates/ntsc-oracle",
     "crates/ntsc-source-rgb",
     "crates/ntsc-wasm",
+    "crates/ntsc-crt",
 ]
