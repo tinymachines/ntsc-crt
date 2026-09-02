@@ -10,7 +10,7 @@
 //! stay green by design: greys have no chroma for either perturbation to
 //! touch, and luma passes through neither path.
 
-use ntsc_decode::RungA;
+use ntsc_decode::Decoder;
 use ntsc_grid::{FrameParity, Phase};
 use ntsc_source_nes::{burst_axis_offset, encode_frame, levels, wave_high, DotFrame, Levels};
 
@@ -18,8 +18,8 @@ fn mutate() -> bool {
     std::env::var("MUTATE").map(|v| v == "1").unwrap_or(false)
 }
 
-fn decoder() -> RungA {
-    let mut d = RungA::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2]);
+fn decoder() -> Decoder {
+    let mut d = Decoder::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2]);
     if mutate() {
         let mid = d.uv_taps.len() / 2;
         d.uv_taps[mid] += 0.05;

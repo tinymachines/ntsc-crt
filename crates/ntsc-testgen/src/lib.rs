@@ -50,6 +50,30 @@ pub fn colour_cycle_set(short: bool) -> Vec<DotFrame> {
         .collect()
 }
 
+/// SMPTE 75% colour bars as video-level G'B'R' triples (0.75 or 0.0 per
+/// channel), row-major, seven equal-width bars in the standard order:
+/// white, yellow, cyan, green, magenta, red, blue. Video level, not
+/// sRGB: the published bar IRE values assume the video signal is 0.75,
+/// so this feeds `encode_video_frame` directly.
+pub fn smpte_bars75(width: usize, height: usize) -> Vec<f32> {
+    const BARS: [[f32; 3]; 7] = [
+        [0.75, 0.75, 0.75],
+        [0.75, 0.75, 0.0],
+        [0.0, 0.75, 0.75],
+        [0.0, 0.75, 0.0],
+        [0.75, 0.0, 0.75],
+        [0.75, 0.0, 0.0],
+        [0.0, 0.0, 0.75],
+    ];
+    let mut out = Vec::with_capacity(width * height * 3);
+    for _ in 0..height {
+        for x in 0..width {
+            out.extend_from_slice(&BARS[(x * 7 / width).min(6)]);
+        }
+    }
+    out
+}
+
 /// Vertical stripes: two colours alternating every active dot, for comb
 /// testing (M2's Rung C cancellation frame).
 pub fn stripes(parity: FrameParity, a: u8, b: u8) -> DotFrame {

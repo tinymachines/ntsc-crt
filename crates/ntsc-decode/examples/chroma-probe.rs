@@ -1,10 +1,10 @@
-use ntsc_decode::{tables, RungA};
+use ntsc_decode::{tables, Decoder};
 use ntsc_grid::{FrameParity, Phase};
 use ntsc_source_nes::{burst_axis_offset, encode_frame, wave_high, levels, DotFrame, Levels};
 fn main() {
     let frame = encode_frame(&Levels::transcribed(), &DotFrame::filled(FrameParity::Even, 0x18, 0), Phase::new(0));
     let line = &frame.lines[100];
-    let d = RungA::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2]);
+    let d = Decoder::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2]);
     let taps = &d.chroma_taps;
     let m = taps.len() / 2;
     println!("gain const = {}", tables::CHROMA_GAIN_AT_SUBCARRIER);

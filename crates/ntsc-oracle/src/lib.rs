@@ -11,7 +11,7 @@
 
 pub mod blargg_model;
 
-use ntsc_decode::RungA;
+use ntsc_decode::Decoder;
 use ntsc_grid::{FrameParity, Phase};
 use ntsc_source_nes::{burst_axis_offset, encode_frame, levels, DotFrame, Levels};
 
@@ -151,8 +151,8 @@ pub fn solid_dc(colour: u8, emphasis: u8) -> (f32, f32, f32) {
 }
 
 /// The NES-profile Rung A decoder with the transcribed references.
-pub fn nes_decoder() -> RungA {
-    RungA::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2])
+pub fn nes_decoder() -> Decoder {
+    Decoder::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2])
 }
 
 /// The rigid map from this pipeline's (U, V) onto blargg's (I, Q),

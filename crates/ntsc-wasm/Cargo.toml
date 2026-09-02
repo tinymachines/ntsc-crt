@@ -1,0 +1,21 @@
+[package]
+name = "ntsc-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "The browser bridge: dot frames in, RGBA out, frame pacing with counted duplicates and drops. The core is plain Rust so the native benches measure the same code the page runs."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-source-nes = { path = "../ntsc-source-nes" }
+ntsc-decode = { path = "../ntsc-decode" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+ntsc-testgen = { path = "../ntsc-testgen" }
+ntsc-source-rgb = { path = "../ntsc-source-rgb" }

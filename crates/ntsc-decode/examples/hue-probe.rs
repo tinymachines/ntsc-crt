@@ -1,9 +1,9 @@
-use ntsc_decode::RungA;
+use ntsc_decode::Decoder;
 use ntsc_grid::{FrameParity, Phase};
 use ntsc_source_nes::{burst_axis_offset, encode_frame, wave_high, levels, DotFrame, Levels};
 fn main() {
     let theta0 = burst_axis_offset();
-    let d = RungA::transcribed(theta0, levels::LOW[1], levels::HIGH[2]);
+    let d = Decoder::transcribed(theta0, levels::LOW[1], levels::HIGH[2]);
     println!("theta0 = {:.4} rad = {:.1} deg", theta0, theta0.to_degrees());
     for hue in 1..=12u8 {
         let frame = encode_frame(&Levels::transcribed(), &DotFrame::filled(FrameParity::Even, 0x10 | hue, 0), Phase::new(0));

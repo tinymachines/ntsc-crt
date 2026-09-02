@@ -6,4 +6,6 @@ members = [
     "crates/ntsc-testgen",
     "crates/ntsc-decode",
     "crates/ntsc-oracle",
+    "crates/ntsc-source-rgb",
+    "crates/ntsc-wasm",
 ]

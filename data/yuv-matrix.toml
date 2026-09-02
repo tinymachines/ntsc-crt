@@ -1,20 +1,25 @@
 # The NTSC luminance / colour-difference matrix and its inverse.
 #
-# SECONDARY-SOURCE TRANSCRIPTION. The primary is SMPTE 170M-2004 (as
-# republished in ITU-R BT.1700), pages 4, 16 and 17; the ITU download URL
-# returned 404 on 2026-09-01, so these values are transcribed from the
-# nesdev wiki page below, which cites those pages. Confirmation against
-# the primary is deferred to M2, when the RGB encoder consumes this file;
-# until then every number here is a copy of a copy and says so.
+# CONFIRMED AGAINST THE PRIMARY at M2 (2026-09-01): SMPTE ST 170M-2004,
+# retrieved from SMPTE's own repository,
+# https://pub.smpte.org/latest/st170/st170-20041130-pub.zip, zip sha256
+# dc9a1f0487385b697de0caca0a8371d61d84bffe7352bcf707818cc9bd8df2bd.
+# Clause 6.1 states the base matrix below digit for digit and calls the
+# coefficients precise values (587/1000 etc.); clause 6.2's I/Q formulas
+# (I = -0.2680(B-Y) + 0.7358(R-Y), Q = 0.4127(B-Y) + 0.4778(R-Y))
+# re-derive from the reduction factors and the 33-degree rotation below
+# to the printed four decimals. Originally transcribed at second hand
+# from the nesdev wiki (the ITU BT.1700 republication was unreachable);
+# that provenance is kept underneath for the record.
 
 [provenance]
-primary = "SMPTE 170M-2004 via ITU-R BT.1700, pages 4, 16, 17 (unreachable 2026-09-01)"
+primary = "SMPTE ST 170M-2004, clauses 6.1, 6.2, 8, 10; pub.smpte.org zip sha256 dc9a1f0487385b697de0caca0a8371d61d84bffe7352bcf707818cc9bd8df2bd"
 transcribed_from = "https://www.nesdev.org/wiki/NTSC_video"
 revision_id = 23864
 revision_timestamp = "2026-06-01T01:24:50Z"
 transcription_date = "2026-09-01"
 transcriber = "Claude (session 014VicWVt4rRCgaqFdzdEfcd), from the raw wikitext"
-status = "secondary source; confirm against SMPTE 170M-2004 at M2"
+status = "confirmed against the primary, 2026-09-01 (M2)"
 
 # Base matrix: rows are Y, B-Y, R-Y over [R, G, B].
 [base]

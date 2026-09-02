@@ -1,0 +1,66 @@
+# Broadcast NTSC levels, horizontal timing, and encoding constants,
+# transcribed from the primary: SMPTE ST 170M-2004 (stabilized 2010),
+# retrieved 2026-09-01 from SMPTE's own repository,
+# https://pub.smpte.org/latest/st170/st170-20041130-pub.zip,
+# zip sha256 dc9a1f0487385b697de0caca0a8371d61d84bffe7352bcf707818cc9bd8df2bd.
+# Values in IRE, microseconds and subcarrier cycles exactly as printed;
+# sample positions are derived by consumers at the 12 x 315/88 MHz grid,
+# rounded to the nearest sample (Table 2's own tolerances absorb that).
+
+[provenance]
+source = "SMPTE ST 170M-2004, Table 1 (levels), Table 2 (horizontal timing), clauses 5.1, 8.2, 10, 12"
+url = "https://pub.smpte.org/latest/st170/st170-20041130-pub.zip"
+sha256 = "dc9a1f0487385b697de0caca0a8371d61d84bffe7352bcf707818cc9bd8df2bd"
+transcription_date = "2026-09-01"
+transcriber = "Claude (session 014VicWVt4rRCgaqFdzdEfcd), from the PDF"
+
+# Table 1, plus clause 12.1: 140 IRE peak-to-peak without chroma is the
+# 1 V p-p signal, so 1 IRE = 1/140 V.
+[levels_ire]
+white = 100.0
+black_setup = 7.5
+blanking = 0.0
+burst_pp = 40.0
+sync = -40.0
+ire_per_volt = 140.0
+
+# Table 2. The horizontal reference point (H-ref) is the 50% point of the
+# sync leading edge; burst start is nominally 19 subcarrier cycles after
+# it, burst lasts 9 cycles, and burst is absent during the nine-line
+# vertical blanking interval of each field (Table 2 footnote, clause 8.2).
+[horizontal]
+line_us = 63.556
+blanking_start_to_href_us = 1.5
+sync_us = 4.70
+href_to_burst_start_cycles = 19
+burst_cycles = 9
+href_to_blanking_end_us = 9.20
+burst_free_vertical_lines_per_field = 9
+
+# Clause 10's base equation, IRE domain, G B R inputs at 100 IRE with no
+# setup: N = 0.925 Y + 7.5 + 0.4552 (B-Y) sin + 0.8115 (R-Y) cos, and the
+# subcarrier reference is the burst phase + 180 degrees (note 2).
+# 0.4552 and 0.8115 are 0.925 times the reduction factors in
+# yuv-matrix.toml; tests/data.rs holds the two files to each other.
+[encoding]
+y_scale = 0.925
+setup_ire = 7.5
+u_scale = 0.4552
+v_scale = 0.8115
+burst_is_reference_plus_deg = 180.0
+
+# Clause 5.1: the reference camera's opto-electronic transfer
+# characteristic. V = 1.099 L^0.45 - 0.099 for L >= 0.018, else 4.5 L.
+[camera]
+gain = 1.099
+power = 0.45
+offset = 0.099
+linear_slope = 4.5
+linear_below = 0.018
+
+# Clause 7.2: colour-difference bandwidth template (the standard's
+# primary spec is equiband B-Y/R-Y; the split I/Q bandwidths are the
+# NTSC-1953 continuation note only). Clause 7.3 asks for minimal ringing.
+[chroma_template]
+minus_2db_at_hz = 1300000
+minus_20db_at_hz = 3600000

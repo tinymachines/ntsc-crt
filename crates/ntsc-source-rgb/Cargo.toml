@@ -1,0 +1,16 @@
+[package]
+name = "ntsc-source-rgb"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "RGB framebuffer to CompositeFrame: the full broadcast NTSC encoder, levels, timing and matrix from SMPTE ST 170M-2004 through the data files at build time."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+
+[build-dependencies]
+toml = "0.8"
+
+[dev-dependencies]
+ntsc-decode = { path = "../ntsc-decode" }
+ntsc-testgen = { path = "../ntsc-testgen" }
