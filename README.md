@@ -13,11 +13,13 @@ is source-agnostic, has an oracle, and has a way to fail.
 
 ## Status
 
-M0 (grid and contract), M1 (NES encode, Rung A decode, blargg golden),
-M2 (RGB encode, the comb rungs, WASM, the measured budget), M3 (the CRT
-stages) and M4 (the capture source; its real-recording half waits on
-hardware) are built and closed; the milestone logs are
-`docs/m0-report.md` through `docs/m4-report.md`. Nine crates:
+All six milestones of the handoff spec are built and closed: M0 (grid
+and contract), M1 (NES encode, Rung A decode, blargg golden), M2 (RGB
+encode, the comb rungs, WASM, the measured budget), M3 (the CRT
+stages), M4 (the capture source; its real-recording half waits on
+hardware) and M5 (self-counts, `docs/divergences.md`, the spec's v0.3
+draft). The milestone logs are `docs/m0-report.md` through
+`docs/m5-report.md`. Nine crates:
 
 | Crate | Role |
 |---|---|
@@ -59,5 +61,8 @@ wasm-pack build crates/ntsc-wasm --target nodejs --release   # the browser build
                                     #  for the simd variant; both measured)
 python3 tools/gen-filters.py        # regenerate data/filters/rung-a.toml
 python3 tools/diff-transcriptions.py # the M0 two-transcription gate
+python3 tools/check-self-counts.py   # every counted claim in the docs vs a
+                                     # fresh measurement (--fast skips the
+                                     # cargo rows; REQUIRE_ALL=1 insists)
 cargo clippy --workspace --all-targets
 ```

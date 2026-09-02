@@ -52,7 +52,7 @@ header and invisible to M2's oracles.
 The known-answer gate (`tests/bars.rs`), all inside Table 1's +/-1 IRE:
 
 - Each 75% bar's waveform mean lands on both the clause-10 derivation
-  and the published waveform-monitor column (76.9 / 68.9 / 56.1 / 48.2 /
+  and the published waveform-monitor column (76.9 / 69.0 / 56.1 / 48.2 /
   36.1 / 28.2 / 15.4 IRE), which are compared against each other, so a
   wrong matrix or a wrong setup breaks the agreement.
 - Burst peak-to-peak at 40 IRE (tolerance justified from the 12-sample

@@ -31,7 +31,7 @@ const BAR_RGB: [[f32; 3]; 7] = [
 /// magenta, red, blue. An external anchor, typed with intent: the test
 /// also derives the same column from clause 10 and the base matrix, and
 /// both must agree.
-const PUBLISHED_BAR_IRE: [f32; 7] = [76.9, 68.9, 56.1, 48.2, 36.1, 28.2, 15.4];
+const PUBLISHED_BAR_IRE: [f32; 7] = [76.9, 69.0, 56.1, 48.2, 36.1, 28.2, 15.4];
 
 fn bars_frame() -> (ntsc_grid::CompositeFrame, usize) {
     let width = 700;

@@ -31,6 +31,7 @@ recorded per file in each file's provenance header. Current inventory:
 - `data/broadcast-timing.toml` and the confirmation in
   `data/yuv-matrix.toml` transcribe numeric constants from SMPTE ST
   170M-2004, retrieved from SMPTE's own public repository
-  (pub.smpte.org) and pinned by hash. The standard document itself is
+  (pub.smpte.org), zip sha256
+  dc9a1f0487385b697de0caca0a8371d61d84bffe7352bcf707818cc9bd8df2bd. The standard document itself is
   not redistributed here; only the cited constants are, as facts with
   attribution.
