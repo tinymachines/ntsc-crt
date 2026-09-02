@@ -1,0 +1,47 @@
+# The NTSC luminance / colour-difference matrix and its inverse.
+#
+# SECONDARY-SOURCE TRANSCRIPTION. The primary is SMPTE 170M-2004 (as
+# republished in ITU-R BT.1700), pages 4, 16 and 17; the ITU download URL
+# returned 404 on 2026-09-01, so these values are transcribed from the
+# nesdev wiki page below, which cites those pages. Confirmation against
+# the primary is deferred to M2, when the RGB encoder consumes this file;
+# until then every number here is a copy of a copy and says so.
+
+[provenance]
+primary = "SMPTE 170M-2004 via ITU-R BT.1700, pages 4, 16, 17 (unreachable 2026-09-01)"
+transcribed_from = "https://www.nesdev.org/wiki/NTSC_video"
+revision_id = 23864
+revision_timestamp = "2026-06-01T01:24:50Z"
+transcription_date = "2026-09-01"
+transcriber = "Claude (session 014VicWVt4rRCgaqFdzdEfcd), from the raw wikitext"
+status = "secondary source; confirm against SMPTE 170M-2004 at M2"
+
+# Base matrix: rows are Y, B-Y, R-Y over [R, G, B].
+[base]
+y = [0.299, 0.587, 0.114]
+b_minus_y = [-0.299, -0.587, 0.886]
+r_minus_y = [0.701, -0.587, -0.114]
+
+# Colour reduction factors: U = (B-Y) * u_factor, V = (R-Y) * v_factor.
+[reduction]
+u_factor = 0.492111
+v_factor = 0.877283
+
+# YUV to signal RGB, as the page states it. tests/data.rs re-derives each
+# coefficient from [base] and [reduction] and holds them to 1e-4.
+[inverse]
+r_from_v = 1.139883
+g_from_u = -0.394642
+g_from_v = -0.580622
+b_from_u = 2.032062
+
+# I/Q is U/V rotated by 33 degrees; not the same as decoding YIQ with the
+# proper different bandwidths per component.
+[iq]
+rotation_degrees = 33.0
+
+# Demodulation constants: the factor of 2 from the integral of sin^2 over
+# a cycle, and the burst peak-to-peak reference amplitude in IRE.
+[saturation]
+chroma_correction = 2.0
+burst_reference_ire = 40.0

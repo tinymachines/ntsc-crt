@@ -1,0 +1,61 @@
+# NES composite signal levels, transcribed from the nesdev wiki.
+#
+# Acceptance protocol (handoff spec section 4.1): two independent
+# transcriptions by two agents, diffed on every numeric field before this
+# file is trusted. This is transcription A. The diff result is recorded in
+# docs/m0-report.md.
+
+[provenance]
+source_url = "https://www.nesdev.org/wiki/NTSC_video"
+revision_id = 23864
+revision_timestamp = "2026-06-01T01:24:50Z"
+transcription_date = "2026-09-01"
+transcriber = "transcription A: Claude (session 014VicWVt4rRCgaqFdzdEfcd), from the raw wikitext of the revision above"
+measurement = "lidnariq, properly terminated (75 ohm) TV, about 10 mV of noise and 4 mV of quantization error, implying +/-2 IRE"
+measurement_url = "http://forums.nesdev.org/viewtopic.php?p=159266#p159266"
+# The nesdev wiki declares no site-wide licence: the MediaWiki API's
+# rightsinfo is empty and the page carries no licence footer (checked
+# 2026-09-01). The values here are measurements, used as facts with
+# attribution to the measurer and the page. Recorded per the spec's
+# principle 6; revisit before any redistribution decision.
+licence = "none declared by the wiki; measured data used as facts with attribution"
+
+# The terminated measurement table, exactly as printed: potentials in
+# volts (the page prints mV), IRE as printed ($1D is the 0 IRE reference,
+# printed as an identity). Rows $x0 are the "signal high" voltage of luma
+# row x, rows $xD the "signal low"; $x1-$xC alternate between the two.
+# The page states $20 and $30 are exactly the same, and its own levels[16]
+# table duplicates the $2x high into the $3x slot; index 3 of the high
+# arrays below does the same. All other entries are measured rows.
+[levels]
+sync_volts = 0.048
+sync_ire = -37
+burst_low_volts = 0.148
+burst_low_ire = -23
+burst_high_volts = 0.524
+burst_high_ire = 30
+# index = luma row $0x..$3x
+low_volts = [0.228, 0.312, 0.552, 0.880]
+low_ire = [-12, 0, 34, 80]
+high_volts = [0.616, 0.840, 1.100, 1.100]
+high_ire = [43, 74, 110, 110]
+low_attenuated_volts = [0.192, 0.256, 0.448, 0.712]
+low_attenuated_ire = [-17, -8, 19, 56]
+high_attenuated_volts = [0.500, 0.676, 0.896, 0.896]
+high_attenuated_ire = [26, 51, 82, 82]
+
+[attenuation]
+# The page's own average over the measured pairs: "attenuated absolute is
+# on average 0.816328 times the un-attenuated absolute voltage". The
+# per-level attenuated rows above are direct measurements, not products of
+# this factor; tests/data.rs checks the two stories agree.
+average_factor = 0.816328
+
+[phase]
+# Colour $xY uses square wave Y, high at sample phases p where
+# (Y + p) mod 12 < 6. Colorburst (pure -U) is the same phase as wave 8.
+# Emphasis bits attenuate during the phases of one wave each.
+colorburst_wave = 8
+emphasis_bit7_wave = 8
+emphasis_bit6_wave = 4
+emphasis_bit5_wave = 12

@@ -1,0 +1,12 @@
+[package]
+name = "ntsc-grid"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Sample grid types, phase arithmetic and frame geometry for the ntsc-crt pipeline: the contract every other stage is verified against."
+
+[dependencies]
+num-rational = { version = "0.4", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+toml = "0.8"

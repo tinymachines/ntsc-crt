@@ -1,0 +1,32 @@
+# Transcription B: acceptance evidence for data/nes-levels.toml, never read
+# by any crate. Produced independently (same wiki revision 23864, fetched
+# separately, first transcription unseen) by a second agent on 2026-09-01;
+# tools/diff-transcriptions.py compared 43 numeric values, 0 disagreements.
+# Judgement call, made identically by both transcribers: the $3x high row
+# has no measured entry, so index 3 copies the $2x row per the page's own
+# levels[16] table and its "$20 and $30 are exactly the same" statement.
+
+[levels]
+sync_volts = 0.048
+sync_ire = -37
+burst_low_volts = 0.148
+burst_low_ire = -23
+burst_high_volts = 0.524
+burst_high_ire = 30
+low_volts = [0.228, 0.312, 0.552, 0.880]
+low_ire = [-12, 0, 34, 80]
+high_volts = [0.616, 0.840, 1.100, 1.100]
+high_ire = [43, 74, 110, 110]
+low_attenuated_volts = [0.192, 0.256, 0.448, 0.712]
+low_attenuated_ire = [-17, -8, 19, 56]
+high_attenuated_volts = [0.500, 0.676, 0.896, 0.896]
+high_attenuated_ire = [26, 51, 82, 82]
+
+[attenuation]
+average_factor = 0.816328
+
+[phase]
+colorburst_wave = 8
+emphasis_bit7_wave = 8
+emphasis_bit6_wave = 4
+emphasis_bit5_wave = 12
