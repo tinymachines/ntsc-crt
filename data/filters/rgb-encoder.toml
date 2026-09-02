@@ -2,7 +2,7 @@
 
 [provenance]
 generator = "tools/gen-filters.py"
-generated = "2026-09-01"
+generated = "2026-09-02"
 design = "Blackman-windowed sinc (sidelobes ~-58 dB, minimal ringing per ST 170M clause 7.3), cutoff scanned 1.6..2.6 MHz in 50 kHz steps for most margin against the clause 7.2 template"
 template = "SMPTE ST 170M-2004 clause 7.2: < 2 dB down at 1.3 MHz, >= 20 dB down at 3.6 MHz (see data/broadcast-timing.toml)"
 cutoff_hz = 2600000

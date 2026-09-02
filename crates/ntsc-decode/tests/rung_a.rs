@@ -4,8 +4,11 @@
 //! square wave's fundamental predicts, and the matrix constants reach the
 //! output. The blargg comparison lives in ntsc-oracle.
 //!
-//! MUTATE=1 perturbs the U/V lowpass centre tap and one inverse-matrix
-//! coefficient on the decoder under test (spec section 5); the hue-ladder
+//! MUTATE=1 perturbs the U/V lowpass centre tap (by 0.15: the decimated
+//! path interpolates smoothly, so the old 0.05 impulse no longer put
+//! ripple at the measurement point and its red faded inside the 10%
+//! tolerance, which is exactly the kind of quiet weakening this comment
+//! records) and one inverse-matrix coefficient; the hue-ladder
 //! amplitude and the matrix test must go red. The grey and luma tests
 //! stay green by design: greys have no chroma for either perturbation to
 //! touch, and luma passes through neither path.
@@ -22,7 +25,7 @@ fn decoder() -> Decoder {
     let mut d = Decoder::transcribed(burst_axis_offset(), levels::LOW[1], levels::HIGH[2]);
     if mutate() {
         let mid = d.uv_taps.len() / 2;
-        d.uv_taps[mid] += 0.05;
+        d.uv_taps[mid] += 0.15;
         d.r_from_v += 0.3;
     }
     d

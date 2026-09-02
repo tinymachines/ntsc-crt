@@ -62,13 +62,22 @@ impl NesPipeline {
         };
         let frame = encode_frame(&self.levels, &dots, self.origin);
         self.origin = frame.next_origin();
-        let rgb = self.decoder.decode(&frame, self.row0, OUT_HEIGHT, OUT_WIDTH);
+        // Straight from YUV to bytes: decode() encodes signal RGB to
+        // linear light with a 2.2 power and signal_rgb() immediately
+        // undoes it, which cost three million powf calls per frame for
+        // a mathematical identity. The matrix and clamp here are the
+        // same ones to_linear_rgb applies.
+        let yuv = self.decoder.decode_yuv(&frame, self.row0, OUT_HEIGHT, OUT_WIDTH);
+        let d = &self.decoder;
         let mut out = Vec::with_capacity(OUT_WIDTH * OUT_HEIGHT * 4);
         for i in 0..OUT_WIDTH * OUT_HEIGHT {
-            let s = rgb.signal_rgb(i);
-            out.push((s[0] * 255.0 + 0.5) as u8);
-            out.push((s[1] * 255.0 + 0.5) as u8);
-            out.push((s[2] * 255.0 + 0.5) as u8);
+            let (y, u, v) = (yuv.y[i], yuv.u[i], yuv.v[i]);
+            let r = (y + d.r_from_v * v).clamp(0.0, 1.0);
+            let g = (y + d.g_from_u * u + d.g_from_v * v).clamp(0.0, 1.0);
+            let b = (y + d.b_from_u * u).clamp(0.0, 1.0);
+            out.push((r * 255.0 + 0.5) as u8);
+            out.push((g * 255.0 + 0.5) as u8);
+            out.push((b * 255.0 + 0.5) as u8);
             out.push(255);
         }
         out

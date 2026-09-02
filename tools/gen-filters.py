@@ -103,6 +103,24 @@ def main():
     chroma_gain = gain_at(chroma, fsc / fs)
     uv = lowpass(UV_CUTOFF_HZ / fs, UV_TAPS)
 
+    # The decimated U/V lowpass: the demodulated chroma is 0.6 MHz wide,
+    # so the decoder decimates the raw product by 4 and filters at fs/4
+    # with 15 taps instead of 101 at full rate. Decimating first folds
+    # the product's image bands (chroma bandpass 2.58..4.58 MHz plus
+    # f_sc lands at 6.16..8.16 MHz, folding to 2.58..4.58 MHz at fs/4);
+    # the filter's measured attenuation there is recorded below and the
+    # decoder's tests hold the end result to the same envelopes as the
+    # full-rate design did.
+    uv_dec_factor = 4
+    fs_dec = fs / uv_dec_factor
+    uv_dec = lowpass(UV_CUTOFF_HZ / fs_dec, 15)
+    fold_lo_db = 20 * math.log10(max(abs(gain_at(uv_dec, 2_580_000 / fs_dec)), 1e-12))
+    fold_hi_db = 20 * math.log10(max(abs(gain_at(uv_dec, 3_580_000 / fs_dec)), 1e-12))
+    if fold_lo_db > -40.0:
+        raise SystemExit(
+            f"decimated UV lowpass leaks the folded image band: {fold_lo_db:.1f} dB at 2.58 MHz"
+        )
+
     out = Path(__file__).resolve().parent.parent / "data/filters/rung-a.toml"
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:
@@ -120,8 +138,17 @@ def main():
         f.write(f"taps = [{', '.join(f'{t:.10e}' for t in chroma)}]\n")
         f.write(f"gain_at_subcarrier = {chroma_gain:.10f}  # measured by DFT, used for normalization\n\n")
         f.write("[uv_lowpass]\n")
-        f.write(f"taps = [{', '.join(f'{t:.10e}' for t in uv)}]\n")
-    print(f"wrote {out}: chroma {CHROMA_TAPS} taps (gain at f_sc {chroma_gain:.4f}), uv {UV_TAPS} taps")
+        f.write(f"taps = [{', '.join(f'{t:.10e}' for t in uv)}]\n\n")
+        f.write("[uv_lowpass_decimated]\n")
+        f.write(f"decimation = {uv_dec_factor}\n")
+        f.write(f"taps = [{', '.join(f'{t:.10e}' for t in uv_dec)}]\n")
+        f.write(f"measured_db_at_folded_2580000 = {fold_lo_db:.2f}\n")
+        f.write(f"measured_db_at_folded_3580000 = {fold_hi_db:.2f}\n")
+    print(
+        f"wrote {out}: chroma {CHROMA_TAPS} taps (gain at f_sc {chroma_gain:.4f}), "
+        f"uv {UV_TAPS} taps, decimated uv 15 taps at fs/{uv_dec_factor} "
+        f"({fold_lo_db:.1f} dB at the folded 2.58 MHz)"
+    )
 
     n, (margin, fc_hz, taps, db13, db36) = gen_encoder_chroma(fs)
     enc = Path(__file__).resolve().parent.parent / "data/filters/rgb-encoder.toml"

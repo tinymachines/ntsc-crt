@@ -75,6 +75,45 @@ impl LinearRgbFrame {
     }
 }
 
+/// Valid convolution in tap-outer, sample-inner order: for each tap,
+/// one elementwise multiply-add over a shifted slice. The inner loop is
+/// what the compiler vectorizes (AVX natively, simd128 on wasm), which
+/// is where the decoder's speed lives; the index-per-sample form it
+/// replaced defeated the vectorizer entirely.
+fn conv_valid(src: &[f32], taps: &[f32], out: &mut [f32]) {
+    let n = out.len();
+    out.fill(0.0);
+    for (k, &t) in taps.iter().enumerate() {
+        for (o, &v) in out.iter_mut().zip(&src[k..k + n]) {
+            *o += t * v;
+        }
+    }
+}
+
+/// Edge-replicate padding: the same boundary the old clamped indexing
+/// produced, hoisted out of the inner loop.
+fn padded(src: &[f32], left: usize, right: usize) -> Vec<f32> {
+    let mut p = Vec::with_capacity(src.len() + left + right);
+    p.extend(std::iter::repeat_n(src[0], left));
+    p.extend_from_slice(src);
+    p.extend(std::iter::repeat_n(*src.last().unwrap(), right));
+    p
+}
+
+/// Catmull-Rom interpolation of a decimated series at fractional index
+/// `x`, edges clamped. Chroma is 0.6 MHz wide on a 10.7 MHz decimated
+/// grid, where cubic interpolation errs by about a tenth of a percent.
+fn catmull(s: &[f32], x: f32) -> f32 {
+    let j = x.floor() as isize;
+    let t = x - j as f32;
+    let get = |i: isize| s[i.clamp(0, s.len() as isize - 1) as usize];
+    let (p0, p1, p2, p3) = (get(j - 1), get(j), get(j + 1), get(j + 2));
+    0.5 * (2.0 * p1
+        + (-p0 + p2) * t
+        + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t * t
+        + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t * t * t)
+}
+
 /// How luma and chroma are pulled apart.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Separation {
@@ -91,7 +130,12 @@ pub struct Decoder {
     /// Comb weights over (previous, current, next) line; unused by Notch.
     pub comb_weights: [f32; 3],
     pub chroma_taps: Vec<f32>,
+    /// The post-demodulation lowpass, at the DECIMATED rate: the raw
+    /// product is decimated by `uv_decimation` first (the folded image
+    /// bands land in this filter's stopband, measured in the filter
+    /// file), which is the lever that made the bench fast.
     pub uv_taps: Vec<f32>,
+    pub uv_decimation: usize,
     /// What the separation stage's chroma path gains at the subcarrier:
     /// the measured bandpass response for Notch, exactly 1 for combs.
     pub chroma_gain: f32,
@@ -115,7 +159,8 @@ impl Decoder {
             separation: Separation::Notch,
             comb_weights: [0.0; 3],
             chroma_taps: tables::CHROMA_BANDPASS.to_vec(),
-            uv_taps: tables::UV_LOWPASS.to_vec(),
+            uv_taps: tables::UV_LOWPASS_DECIMATED.to_vec(),
+            uv_decimation: tables::UV_DECIMATION,
             chroma_gain: tables::CHROMA_GAIN_AT_SUBCARRIER,
             r_from_v: tables::R_FROM_V,
             g_from_u: tables::G_FROM_U,
@@ -173,15 +218,9 @@ impl Decoder {
             Separation::Notch => {
                 let taps = &self.chroma_taps;
                 let half = taps.len() / 2;
-                let at = |i: isize| cur[i.clamp(0, n as isize - 1) as usize];
-                let chroma: Vec<f32> = (0..n)
-                    .map(|i| {
-                        taps.iter()
-                            .enumerate()
-                            .map(|(k, t)| t * at(i as isize + k as isize - half as isize))
-                            .sum()
-                    })
-                    .collect();
+                let pad = padded(cur, half, taps.len() - 1 - half);
+                let mut chroma = vec![0.0f32; n];
+                conv_valid(&pad, taps, &mut chroma);
                 let luma = cur.iter().zip(&chroma).map(|(s, c)| s - c).collect();
                 (luma, chroma)
             }
@@ -233,33 +272,59 @@ impl Decoder {
             *s = theta.sin() as f32;
             *c = theta.cos() as f32;
         }
+        // The line's phase pattern repeats every 12 samples: rotate the
+        // tables once, then the demodulation products are elementwise.
+        let p0 = frame.phase_at(line, 0).get() as usize;
+        let mut rot_s = [0.0f32; 12];
+        let mut rot_c = [0.0f32; 12];
+        for j in 0..12 {
+            rot_s[j] = sin12[(p0 + j) % 12];
+            rot_c[j] = cos12[(p0 + j) % 12];
+        }
+        let amp_k = scale * tables::CHROMA_SAT_CORRECTION / self.chroma_gain;
+        let mut u_raw = vec![0.0f32; n];
+        let mut v_raw = vec![0.0f32; n];
+        for (i, (u, v)) in u_raw.iter_mut().zip(v_raw.iter_mut()).enumerate() {
+            let a = chroma[i] * amp_k;
+            *u = a * rot_s[i % 12];
+            *v = a * rot_c[i % 12];
+        }
+        // Decimate, filter at the decimated rate, interpolate back.
+        let d = self.uv_decimation;
+        let nd = n.div_ceil(d);
         let uv_half = self.uv_taps.len() / 2;
-        let mut u_raw = Vec::with_capacity(n);
-        let mut v_raw = Vec::with_capacity(n);
-        for (i, c) in chroma.iter().enumerate() {
-            let p = frame.phase_at(line, i).get() as usize;
-            let amp = c * scale * tables::CHROMA_SAT_CORRECTION / self.chroma_gain;
-            u_raw.push(amp * sin12[p]);
-            v_raw.push(amp * cos12[p]);
+        let mut u_lp = vec![0.0f32; nd];
+        let mut v_lp = vec![0.0f32; nd];
+        for (raw, lp) in [(&u_raw, &mut u_lp), (&v_raw, &mut v_lp)] {
+            // Block-average decimation, not plain picking: the boxcar's
+            // nulls sit exactly on the frequencies that fold to DC and
+            // to the decimated Nyquist (k * fs/d), which is what keeps
+            // the comb rungs honest: their chroma is wideband (the
+            // separated residue carries the square wave's harmonics,
+            // whose demodulation products reach 2 fs/d), and picking
+            // every d-th sample aliased those straight into the
+            // passband, measured as a few percent of excess saturation
+            // before this line existed. Passband droop at 0.6 MHz is
+            // under half a percent.
+            let dec: Vec<f32> = (0..nd)
+                .map(|j| {
+                    let a = j * d;
+                    let b = (a + d).min(n);
+                    raw[a..b].iter().sum::<f32>() / (b - a) as f32
+                })
+                .collect();
+            let pad = padded(&dec, uv_half, self.uv_taps.len() - 1 - uv_half);
+            conv_valid(&pad, &self.uv_taps, lp);
         }
         let start = frame.lines[line].active_start;
+        let o0 = out_row * width;
+        for (x, y) in yf.y[o0..o0 + width].iter_mut().enumerate() {
+            *y = (luma[start + x] - self.black) * scale;
+        }
         for x in 0..width {
-            let i = start + x;
-            let conv = |raw: &[f32]| {
-                self.uv_taps
-                    .iter()
-                    .enumerate()
-                    .map(|(k, t)| {
-                        let j = (i as isize + k as isize - uv_half as isize)
-                            .clamp(0, n as isize - 1) as usize;
-                        t * raw[j]
-                    })
-                    .sum::<f32>()
-            };
-            let o = out_row * width + x;
-            yf.y[o] = (luma[i] - self.black) * scale;
-            yf.u[o] = conv(&u_raw);
-            yf.v[o] = conv(&v_raw);
+            let c = (start + x) as f32 / d as f32;
+            yf.u[o0 + x] = catmull(&u_lp, c);
+            yf.v[o0 + x] = catmull(&v_lp, c);
         }
     }
 
