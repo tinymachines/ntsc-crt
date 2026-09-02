@@ -1,0 +1,14 @@
+[package]
+name = "ntsc-source-cap"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Captured waveform to CompositeFrame: sync detection, burst lock, resample onto the grid. The one source with genuine measurement uncertainty, and the capture-card model that lets it be tested without hardware."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-source-rgb = { path = "../ntsc-source-rgb" }
+
+[dev-dependencies]
+ntsc-decode = { path = "../ntsc-decode" }
+ntsc-testgen = { path = "../ntsc-testgen" }

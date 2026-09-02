@@ -9,4 +9,5 @@ members = [
     "crates/ntsc-source-rgb",
     "crates/ntsc-wasm",
     "crates/ntsc-crt",
+    "crates/ntsc-source-cap",
 ]

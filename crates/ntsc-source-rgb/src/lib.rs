@@ -15,9 +15,12 @@
 //!   the other way); identical for band-limited content and exactly
 //!   identical for flat bars.
 //! - Sync, blanking and burst envelopes are rectangular: Table 2's rise
-//!   times (140/300 ns) are not shaped, and vertical sync is modelled at
-//!   line granularity with no serrations (M4's capture source is the
-//!   eventual consumer). The nine burst-free lines per field are honoured.
+//!   times (140/300 ns) are not shaped. Vertical sync is modelled at
+//!   line granularity: frame lines 4..7 and 266..269 carry broad pulses
+//!   (low for each half line except a sync-width serration), enough for
+//!   a field detector to key on, but not the standard's half-line
+//!   equalizing structure. The nine burst-free lines per field are
+//!   honoured.
 //! - SC-H phase is whatever the frame origin gives; not tuned to 13.2.
 
 use ntsc_grid::{CompositeFrame, CompositeLine, FrameParity, Geometry, Phase, SAMPLES_PER_CYCLE};
@@ -119,6 +122,9 @@ pub fn encode_video_frame(
         line < st170::BURST_FREE_LINES_PER_FIELD
             || (262..262 + st170::BURST_FREE_LINES_PER_FIELD).contains(&line)
     };
+    // Broad-pulse vertical sync lines (see the module doc): mostly low,
+    // with one sync-width serration at the end of each half line.
+    let broad = |line: usize| (4..7).contains(&line) || (266..269).contains(&line);
 
     let to_volts = |ire: f32| ire / st170::IRE_PER_VOLT;
     let mut lines = Vec::with_capacity(geo.lines());
@@ -130,7 +136,23 @@ pub fn encode_video_frame(
     #[allow(clippy::needless_range_loop)]
     for line in 0..geo.lines() {
         let mut samples = vec![to_volts(st170::BLANK_IRE); lay.line_len];
-        // Sync tip on every line (line-granularity vertical structure).
+        if broad(line) {
+            let half = lay.line_len / 2;
+            let serration = lay.sync_end - lay.href;
+            for (s, sample) in samples.iter_mut().enumerate() {
+                if (s % half) < half - serration {
+                    *sample = to_volts(st170::SYNC_IRE);
+                }
+            }
+            lines.push(CompositeLine {
+                samples,
+                sync_start: lay.href,
+                burst_start: lay.burst_start,
+                active_start: lay.active_start,
+            });
+            continue;
+        }
+        // Sync tip on every other line (line-granularity structure).
         for s in samples.iter_mut().take(lay.sync_end).skip(lay.href) {
             *s = to_volts(st170::SYNC_IRE);
         }

@@ -105,6 +105,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntsc-source-cap"
+version = "0.1.0"
+dependencies = [
+ "ntsc-decode",
+ "ntsc-grid",
+ "ntsc-source-rgb",
+ "ntsc-testgen",
+]
+
+[[package]]
 name = "ntsc-source-nes"
 version = "0.1.0"
 dependencies = [
