@@ -6,7 +6,7 @@ license = "MIT"
 description = "NES PPU dot stream to CompositeFrame: the direct-synthesis NTSC encoder, levels from data/nes-levels.toml at build time."
 
 [dependencies]
-nes-bus = { git = "https://github.com/tinymachines/nes-bus", tag = "v0.1.0" }
+nes-bus = { git = "https://github.com/tinymachines/nes-bus", tag = "v0.1.1" }
 ntsc-grid = { path = "../ntsc-grid" }
 
 [build-dependencies]
