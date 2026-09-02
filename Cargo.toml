@@ -1,3 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/ntsc-grid"]
+members = [
+    "crates/ntsc-grid",
+    "crates/ntsc-source-nes",
+    "crates/ntsc-testgen",
+    "crates/ntsc-decode",
+    "crates/ntsc-oracle",
+]

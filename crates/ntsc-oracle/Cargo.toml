@@ -1,0 +1,18 @@
+[package]
+name = "ntsc-oracle"
+version = "0.1.0"
+edition = "2021"
+# The crate's own code is MIT; src/blargg_model.rs is ported from
+# nes_ntsc.c and carries LGPL-2.1-or-later. Native-only, test-only, never
+# shipped. See NOTICE.md at the repository root.
+license = "MIT AND LGPL-2.1-or-later"
+description = "Bindings to blargg's nes_ntsc 0.2.2 (fetched by tools/fetch-oracle.sh, never committed), the comparison resampler, and the golden comparison against the pipeline."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-source-nes = { path = "../ntsc-source-nes" }
+ntsc-decode = { path = "../ntsc-decode" }
+ntsc-testgen = { path = "../ntsc-testgen" }
+
+[build-dependencies]
+cc = "1"

@@ -1,0 +1,10 @@
+[package]
+name = "ntsc-testgen"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Synthetic NES dot streams: the test inputs that let M1 through M3 close without any PPU existing anywhere in the stack."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-source-nes = { path = "../ntsc-source-nes" }

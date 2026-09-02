@@ -1,0 +1,12 @@
+[package]
+name = "ntsc-source-nes"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "NES PPU dot stream to CompositeFrame: the direct-synthesis NTSC encoder, levels from data/nes-levels.toml at build time."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+
+[build-dependencies]
+toml = "0.8"

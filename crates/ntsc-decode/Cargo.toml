@@ -1,0 +1,19 @@
+[package]
+name = "ntsc-decode"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "CompositeFrame to YuvFrame to LinearRgbFrame. Rung A: complementary notch/bandpass separation, QAM demodulation at the geometric phase, the transcribed inverse matrix."
+
+[dependencies]
+ntsc-grid = { path = "../ntsc-grid" }
+
+[build-dependencies]
+toml = "0.8"
+
+[dev-dependencies]
+ntsc-source-nes = { path = "../ntsc-source-nes" }
+ntsc-testgen = { path = "../ntsc-testgen" }
+
+[dev-dependencies.ntsc-grid]
+path = "../ntsc-grid"
