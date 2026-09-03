@@ -14,10 +14,107 @@
 //! video level, stated in docs/m4-report.md (consumer gear sits looser
 //! than Table 1's studio +/-1 IRE).
 
-use ntsc_grid::Phase;
+use ntsc_grid::{FrameParity, Phase};
 use ntsc_source_cap::ingest::{auto_level, read_capture};
-use ntsc_source_cap::{capture_model, recover, Capture};
+use ntsc_source_cap::{capture_model, recover, recover_nes, Capture};
 use ntsc_source_rgb::{burst_axis_offset, encode_video_frame, layout, st170, FIELD1_FIRST_LINE};
+
+#[test]
+fn a_synthetic_nes_capture_recovers_onto_the_original_grid() {
+    // Three chained frames of a saturated pattern through the NES
+    // encoder and the capture model. The recovery anchors on the frame
+    // after the first vertical sync group, so the stream is arranged
+    // with origins 8, 0, 4 (a valid chain: the frame residue is 4) and
+    // the anchored frame is the origin-0 one; the recovered grid must
+    // then sit on that frame's own samples, which also pins the
+    // FIRST_BROAD_ROW anchor mapping (one row off would miss by a
+    // whole line).
+    // Eight 32-dot colour bands: wide enough that their luma sits far
+    // inside the capture channel's 6.5 MHz. A per-dot pattern was tried
+    // first and taught the comparison rules below: the channel
+    // legitimately removes the square chroma's harmonics and softens
+    // luma edges, so POINTWISE luma against the unfiltered encoder can
+    // never match; pointwise CHROMA can (the decoder's bandpass leaves
+    // both sides fundamental-only), and REGIONAL luma means can (band
+    // interiors survive the channel exactly).
+    let levels = ntsc_source_nes::Levels::transcribed();
+    let mut dots = ntsc_testgen::solid(FrameParity::Even, 0x0f, 0);
+    let bands = [0x16u8, 0x2a, 0x12, 0x28, 0x14, 0x26, 0x1a, 0x30];
+    for row in 0..240 {
+        for dot in 1..257 {
+            dots.set(row, dot, bands[(dot - 1) / 32], 0);
+        }
+    }
+    let fx = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(8));
+    let f0 = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(0));
+    let f1 = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(4));
+    let cap = capture_model(&[&fx, &f0, &f1], 13_500_000.0, 20.0, 0.0, 0.001, 11);
+    let rec = recover_nes(&cap);
+    assert!((rec.rate_error_ppm - 20.0).abs() < 5.0, "ppm {}", rec.rate_error_ppm);
+    assert!(
+        rec.worst_burst_residual < 0.2,
+        "burst residual {}",
+        rec.worst_burst_residual
+    );
+    // The recovery speaks the table's absolute volts, so the decoder
+    // constants are the oracle's own.
+    let dec = ntsc_decode::Decoder::transcribed(
+        ntsc_source_nes::burst_axis_offset(),
+        ntsc_source_nes::levels::LOW[1],
+        ntsc_source_nes::levels::HIGH[2],
+    );
+    let a = dec.decode_yuv(&rec.frame, 8, 224, 2000);
+    let b = dec.decode_yuv(&f0, 8, 224, 2000);
+    // Chroma, pointwise (measured 0.0023 on the run that pinned this).
+    let chroma_mean = |x: &ntsc_decode::YuvFrame, y: &ntsc_decode::YuvFrame| -> f64 {
+        let mut sum = 0.0f64;
+        for o in 0..2000 * 224 {
+            sum += ((x.u[o] - y.u[o]).abs() + (x.v[o] - y.v[o]).abs()) as f64;
+        }
+        sum / (2000.0 * 224.0)
+    };
+    let du = chroma_mean(&a, &b);
+    assert!(du < 0.006, "decoded chroma mean {du} against the encoder's own frame");
+    // Luma, per band interior (measured worst 0.0010).
+    for (band, _) in bands.iter().enumerate() {
+        let lo = (1 + band * 32) * 8 + 32 - 8;
+        let hi = (1 + band * 32 + 32) * 8 - 32 - 8;
+        let (mut ma, mut mb, mut n) = (0.0f64, 0.0f64, 0.0f64);
+        for r in 8..216usize {
+            for x in lo..hi {
+                ma += a.y[r * 2000 + x] as f64;
+                mb += b.y[r * 2000 + x] as f64;
+                n += 1.0;
+            }
+        }
+        let d = (ma / n - mb / n).abs();
+        assert!(d < 0.005, "band {band} luma mean off by {d}");
+    }
+
+    // The mutation that started all of this: the same capture through
+    // the BROADCAST recovery must not land on the frame. That is
+    // exactly the first real console capture's failure (a broadcast
+    // phase model chasing an NES signal), kept as the proof the
+    // profile is load-bearing. The hue roll shows up as chroma error;
+    // the level convention is equalized first so geometry is the only
+    // thing under test.
+    let wrong = std::panic::catch_unwind(|| recover(&cap));
+    if let Ok(mut wrong) = wrong {
+        for l in &mut wrong.frame.lines {
+            for v in &mut l.samples {
+                *v += ntsc_source_nes::levels::BLANK;
+            }
+        }
+        let w = dec.decode_yuv(&wrong.frame, 8, 224, 2000);
+        let wdu = chroma_mean(&w, &b);
+        assert!(
+            wdu > 10.0 * du,
+            "the broadcast recovery matched an NES capture ({wdu} vs {du}): the profile is not load-bearing"
+        );
+    }
+    // (A panic inside the broadcast path is an acceptable form of NO:
+    // its 525-line frame does not fit this capture's geometry.)
+}
 
 #[test]
 fn arbitrary_units_auto_level_and_recover() {

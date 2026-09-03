@@ -116,6 +116,7 @@ version = "0.1.0"
 dependencies = [
  "ntsc-decode",
  "ntsc-grid",
+ "ntsc-source-nes",
  "ntsc-source-rgb",
  "ntsc-testgen",
 ]

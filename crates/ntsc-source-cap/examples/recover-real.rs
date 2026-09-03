@@ -12,17 +12,18 @@
 //! IRE, and the number is stated here rather than implied).
 
 use ntsc_decode::Decoder;
-use ntsc_source_cap::ingest::{auto_level, read_capture};
-use ntsc_source_cap::recover;
+use ntsc_source_cap::ingest::{auto_level, auto_level_nes, read_capture};
+use ntsc_source_cap::{recover, recover_nes};
 use ntsc_source_rgb::{burst_axis_offset, layout, st170, FIELD1_FIRST_LINE};
 use std::io::Write as _;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let path = args.get(1).expect("usage: recover-real <file> [format] [rate_hz] [--bars]");
+    let path = args.get(1).expect("usage: recover-real <file> [format] [rate_hz] [--bars] [--nes]");
     let format = args.get(2).map(|s| s.as_str()).unwrap_or("wav");
     let rate = args.get(3).and_then(|s| s.parse::<f64>().ok());
     let bars = args.iter().any(|a| a == "--bars");
+    let nes = args.iter().any(|a| a == "--nes");
 
     let raw = read_capture(std::path::Path::new(path), format, rate);
     println!(
@@ -32,23 +33,37 @@ fn main() {
         raw.declared_rate_hz,
         raw.samples.len() as f64 / raw.declared_rate_hz
     );
-    let (cap, tip, blank) = auto_level(&raw);
+    let (cap, tip, blank) = if nes { auto_level_nes(&raw) } else { auto_level(&raw) };
     println!("auto-level: sync tip {tip:.4}, blanking {blank:.4} (original units)");
-    let rec = recover(&cap);
+    let rec = if nes { recover_nes(&cap) } else { recover(&cap) };
     println!(
         "recovered: rate error {:+.1} ppm, worst burst residual {:.3} grid samples, anchor line {}",
         rec.rate_error_ppm, rec.worst_burst_residual, rec.anchor_line
     );
 
     let lay = layout();
-    let active_len = lay.line_len - lay.active_start;
-    let dec = Decoder::transcribed(
-        burst_axis_offset(),
-        st170::BLACK_IRE / st170::IRE_PER_VOLT,
-        st170::WHITE_IRE / st170::IRE_PER_VOLT,
-    );
-    // Decode field 1's picture lines and write them for eyeballing.
-    let rgb = dec.decode(&rec.frame, FIELD1_FIRST_LINE, 240, active_len);
+    let (active_len, first_line) = if nes {
+        (2048usize, 0usize)
+    } else {
+        (lay.line_len - lay.active_start, FIELD1_FIRST_LINE)
+    };
+    let dec = if nes {
+        // The NES profile speaks the transcribed table's absolute
+        // volts, so the decoder constants are the oracle's own.
+        Decoder::transcribed(
+            ntsc_source_nes::burst_axis_offset(),
+            ntsc_source_nes::levels::LOW[1],
+            ntsc_source_nes::levels::HIGH[2],
+        )
+    } else {
+        Decoder::transcribed(
+            burst_axis_offset(),
+            st170::BLACK_IRE / st170::IRE_PER_VOLT,
+            st170::WHITE_IRE / st170::IRE_PER_VOLT,
+        )
+    };
+    // Decode the picture lines and write them for eyeballing.
+    let rgb = dec.decode(&rec.frame, first_line, 240, active_len);
     let out = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../goldens");
     std::fs::create_dir_all(&out).unwrap();
     let mut ppm = Vec::new();

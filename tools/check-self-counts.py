@@ -176,9 +176,9 @@ if FAST:
 else:
     ok, total, reds = cargo_counts()
     measured("workspace green", ok, True)
-    measured("test total", total, 58)
+    measured("test total", total, 59)
     measured("MUTATE reds", reds, 33)
-claim("README.md", r"# 58 tests", 1, "test total in README")
+claim("README.md", r"# 59 tests", 1, "test total in README")
 claim("README.md", r"must go red: 33 tests", 1, "MUTATE count in README")
 # Milestone reports are run stamps of their own commits and are not pinned
 # to the live totals; README carries the current numbers.

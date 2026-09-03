@@ -41,7 +41,7 @@ diffed clean on every numeric field.
 ## Commands
 
 ```bash
-cargo test --workspace              # 58 tests: residues, data consistency,
+cargo test --workspace              # 59 tests: residues, data consistency,
                                     # encoder waveform, Rung A physics, and
                                     # (with the vendor fetched) the blargg
                                     # golden; the oracle tests SKIP without

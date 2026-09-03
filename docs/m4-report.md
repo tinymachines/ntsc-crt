@@ -104,3 +104,53 @@ is now complete (`crates/ntsc-source-cap/src/ingest.rs`,
 
 The human side is one page: `docs/capture-instructions.md`. One file
 plus one command closes the last gate.
+
+## Addendum, 2026-09-02 evening: first real console captures, and the NES profile the recovery was missing
+
+Five captures from a real front-loader NES (Super Mario Bros. / Duck
+Hunt cart) taken with `tools/scope-capture.py` on the family's DS1054Z:
+12 M points each at 125 MSa/s, about 5.8 frames per record, backed up
+off-repo. Three findings, each fixed and proven the same day:
+
+- **The scope ignores a memory-depth set while stopped** and the
+  capture tool issued it stopped; it stayed AUTO and the readback had
+  no record length. Set while running and asserted now.
+- **The recovery's histogram combed on quantized data**: integer u8
+  samples in sub-integer bins made the sync tip read as two peaks, and
+  "blanking" was found one count above the tip. Bin width is clamped
+  to the data's own quantization step now; the synthetic f32 proof
+  capture could never have caught either of these.
+- **The recovery decoded every capture as broadcast NTSC, and the NES
+  is not broadcast NTSC.** Its line is 227 and a third subcarrier
+  cycles (2728 grid samples, not 2730), so the burst phase advances a
+  third of a cycle per line where broadcast advances half, over 262
+  progressive lines anchored on vsync rows 245..=247. Decoded as
+  broadcast, every line landed two grid samples further rotated than
+  the last: a smooth hue roll down the whole frame, invisible on the
+  mostly-monochrome menu screen and unmissable on World 1-1. The
+  broadcast assumption also mismeasured the scope clock at -740 ppm
+  (2 in 2730 is 733 ppm); under the NES profile the same records
+  measure -7 to -19 ppm. `recover_nes` is the fix: NES geometry, the
+  burst target derived from the encoder's own wave-8 square, levels in
+  the transcribed table's ABSOLUTE volts so the recovered frame
+  decodes with the oracle's own constants. Proven on a synthetic NES
+  capture (chained origins 8, 0, 4 so the anchored frame is the
+  origin-0 one): chroma pointwise within 0.006, band luma means within
+  0.005, and the broadcast recovery on the same capture is the built-in
+  mutation, which must miss by 10x or refuse.
+
+**The first region scored against the family's own synthesis**
+(`examples/score-real-region.rs`, the paused World 1-1 sky vs a solid
+$22 frame through the identical decoder): luma within 0.003, hue
+within 0.6 degrees, and saturation 28 percent HOT (0.573 vs 0.448).
+That last number is a finding, not a tolerance to widen: either the
+unterminated probe run flatters the chroma swing, or the real DAC's
+AC swing genuinely exceeds the table's DC-measured levels, and one
+75-ohm terminated re-capture decides which.
+
+The bars gate stays open: the combo cart draws no SMPTE bars, so
+`captures/real-bars.*` still waits on a test ROM. The five banked
+captures (menu, paused World 1-1, title-plus-early-demo, Duck Hunt
+menu, Duck Hunt in play) decode recognizably end to end, and the
+paused 1-1 frame is the keeper: the $22 sky, flat and stable, off
+real silicon through this repository's whole path.

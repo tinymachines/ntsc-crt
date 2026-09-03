@@ -92,6 +92,48 @@ fn read_wav(bytes: &[u8]) -> (Vec<f32>, Option<f64>) {
 /// any composite signal). Returns the scaled capture and the measured
 /// (tip, blank) in the original units, so the caller can report them.
 pub fn auto_level(cap: &Capture) -> (Capture, f32, f32) {
+    let (tip, blank) = find_tip_blank(cap);
+    let scale = 0.286 / (blank - tip);
+    let samples = cap.samples.iter().map(|s| (s - blank) * scale).collect();
+    (
+        Capture {
+            declared_rate_hz: cap.declared_rate_hz,
+            samples,
+        },
+        tip,
+        blank,
+    )
+}
+
+/// The NES variant of [`auto_level`]: the same peak finding, but the
+/// ruler is the transcribed NES table's own sync depth (BLANK - SYNC,
+/// not Table 1's 0.286 V) and the output is re-referenced to the
+/// table's ABSOLUTE voltages, blanking at `levels::BLANK`, so the
+/// recovered frame decodes with the same decoder constants the oracle
+/// uses on encoder output.
+pub fn auto_level_nes(cap: &Capture) -> (Capture, f32, f32) {
+    let (tip, blank) = find_tip_blank(cap);
+    let nes_blank = ntsc_source_nes::levels::BLANK;
+    let nes_sync = ntsc_source_nes::levels::SYNC;
+    let scale = (nes_blank - nes_sync) / (blank - tip);
+    let samples = cap
+        .samples
+        .iter()
+        .map(|s| (s - blank) * scale + nes_blank)
+        .collect();
+    (
+        Capture {
+            declared_rate_hz: cap.declared_rate_hz,
+            samples,
+        },
+        tip,
+        blank,
+    )
+}
+
+/// Sync tip and blanking as the two lowest well-populated histogram
+/// peaks, in the capture's original units.
+fn find_tip_blank(cap: &Capture) -> (f32, f32) {
     let mut sorted = cap.samples.clone();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let lo = sorted[sorted.len() / 1000];
@@ -145,14 +187,5 @@ pub fn auto_level(cap: &Capture) -> (Capture, f32, f32) {
         blank - tip > 4.0 * width,
         "sync tip and blanking are not separated: {tip} vs {blank}"
     );
-    let scale = 0.286 / (blank - tip);
-    let samples = cap.samples.iter().map(|s| (s - blank) * scale).collect();
-    (
-        Capture {
-            declared_rate_hz: cap.declared_rate_hz,
-            samples,
-        },
-        tip,
-        blank,
-    )
+    (tip, blank)
 }
