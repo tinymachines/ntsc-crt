@@ -97,7 +97,21 @@ pub fn auto_level(cap: &Capture) -> (Capture, f32, f32) {
     let lo = sorted[sorted.len() / 1000];
     let hi = sorted[sorted.len() - 1 - sorted.len() / 1000];
     let bins = 256usize;
-    let width = (hi - lo).max(f32::EPSILON) / bins as f32;
+    // Quantized captures comb a fine histogram: a u8 record spanning
+    // 140 counts put integer values in sub-integer bins with empty bins
+    // between them, so the sync tip's two adjacent values read as two
+    // peaks and the scan stopped before real blanking (found on the
+    // first real scope capture, 2026-09-02; the synthetic proof capture
+    // is continuous f32 and could never show it). The bin width is
+    // therefore never narrower than the data's own quantization step.
+    let step = sorted
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .filter(|d| *d > 0.0)
+        .fold(f32::INFINITY, f32::min);
+    let step = if step.is_finite() { step } else { f32::EPSILON };
+    let width = ((hi - lo).max(f32::EPSILON) / bins as f32).max(step);
+    let bins = (((hi - lo) / width).ceil() as usize + 1).max(2);
     let mut hist = vec![0u32; bins];
     for s in &cap.samples {
         let b = (((s - lo) / width) as isize).clamp(0, bins as isize - 1) as usize;

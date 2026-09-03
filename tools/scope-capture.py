@@ -2,7 +2,7 @@
 """Capture a composite waveform from a Rigol DS1000Z-series scope into
 captures/, ready for the M4 real-recording gate.
 
-    python3 tools/scope-capture.py <scope-ip> [name] [channel]
+    python3 tools/scope-capture.py <scope-ip> [name] [channel] [scale-V/div] [offset-V]
 
 The instrument's address is an argument, never committed (the repository
 rule about host-specific detail). The scope may belong to another
@@ -34,6 +34,12 @@ from pathlib import Path
 HOST = sys.argv[1] if len(sys.argv) > 1 else sys.exit(__doc__)
 NAME = sys.argv[2] if len(sys.argv) > 2 else "real-nes"
 CH = int(sys.argv[3]) if len(sys.argv) > 3 else 3
+# Vertical window overrides, for signals that are not ~1.1 V: an
+# unterminated NES into the 1 Mohm input measured 2.68 Vpp on the real
+# bench, which the stock 200 mV/div window clips. 0.5 V/div with a
+# -1.3 V offset frames it.
+SCALE = float(sys.argv[4]) if len(sys.argv) > 4 else 0.2
+OFFSET = float(sys.argv[5]) if len(sys.argv) > 5 else -0.5
 PORT = 5555
 CHUNK = 250_000  # max points per RAW BYTE read on the DS1000Z
 
@@ -87,16 +93,23 @@ def main():
         f":CHANnel{CH}:PROBe 1",
         f":CHANnel{CH}:COUPling DC",
         f":CHANnel{CH}:BWLimit OFF",
-        f":CHANnel{CH}:SCALe 0.2",
-        f":CHANnel{CH}:OFFSet -0.5",
+        f":CHANnel{CH}:SCALe {SCALE}",
+        f":CHANnel{CH}:OFFSet {OFFSET}",
         ":ACQuire:TYPE NORMal",
         ":TIMebase:MAIN:SCALe 0.005",
-        ":ACQuire:MDEPth 12000000",
         ":TRIGger:SWEep AUTO",
     ]:
         sc.cmd(c)
         time.sleep(0.08)
+    # The DS1054Z accepts a memory-depth set only while RUNning; issued
+    # while stopped it stays AUTO and the raw readback below has no
+    # definite record length. Found on the first real capture.
     sc.cmd(":RUN")
+    time.sleep(0.5)
+    sc.cmd(":ACQuire:MDEPth 12000000")
+    time.sleep(0.5)
+    got = sc.ask(":ACQuire:MDEPth?")
+    assert got.strip() == "12000000", f"memory depth did not take: {got!r}"
     time.sleep(1.5)  # let the window fill at least once over
     sc.cmd(":STOP")
     time.sleep(0.3)
@@ -133,7 +146,7 @@ def main():
     (out / f"{NAME}.toml").write_text(
         f'file = "{NAME}.u8"\nformat = "u8"\nrate_hz = {srate:.1f}\n'
         f'# captured {time.strftime("%Y-%m-%d %H:%M")} from {idn.split(",")[1] if "," in idn else idn}\n'
-        f'# by tools/scope-capture.py: CH{CH} DC, 200 mV/div, -500 mV offset, 12 Mpt, 5 ms/div\n'
+        f'# by tools/scope-capture.py: CH{CH} DC, {SCALE * 1000:.0f} mV/div, {OFFSET * 1000:.0f} mV offset, 12 Mpt, 5 ms/div\n'
     )
     print(f"wrote {out / (NAME + '.u8')} and its .toml")
 
