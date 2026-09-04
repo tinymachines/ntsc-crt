@@ -1,0 +1,47 @@
+{
+  "loaded": {
+    "window": "200 mV/div, -500 mV offset",
+    "sync_tip_v": -0.076,
+    "blanking_v": 0.124,
+    "sync_to_blank_v": 0.2,
+    "burst_pp_v": 0.28,
+    "burst_over_sync": 1.4,
+    "peak_v": 0.74,
+    "lines_found": 1512,
+    "line_period_us_median": 63.512,
+    "line_period_nominal_us": 63.5556,
+    "line_period_nes_2728_of_2730_us": 63.509
+  },
+  "table": {
+    "sync": 0.048,
+    "burst_low": 0.148,
+    "burst_high": 0.524,
+    "low": [
+      0.228,
+      0.312,
+      0.552,
+      0.88
+    ],
+    "blank": 0.312,
+    "high": [
+      0.616,
+      0.84,
+      1.1,
+      1.1
+    ],
+    "burst_over_sync": 1.424
+  },
+  "unloaded": {
+    "window": "500 mV/div, -1300 mV offset",
+    "sync_tip_v": 0.12,
+    "blanking_v": 0.62,
+    "sync_to_blank_v": 0.5,
+    "burst_pp_v": 1.0,
+    "burst_over_sync": 2.0,
+    "peak_v": 2.62
+  },
+  "ratio_unloaded_over_loaded": {
+    "sync_to_blank": 2.5,
+    "burst_pp": 3.571
+  }
+}

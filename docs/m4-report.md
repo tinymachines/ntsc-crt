@@ -154,3 +154,31 @@ captures (menu, paused World 1-1, title-plus-early-demo, Duck Hunt
 menu, Duck Hunt in play) decode recognizably end to end, and the
 paused 1-1 frame is the keeper: the $22 sky, flat and stable, off
 real silicon through this repository's whole path.
+
+## Third addendum, 2026-09-04: the terminator
+
+The designed experiment ran: the same console into a 75 ohm
+feedthrough terminator at the scope input, CH3 DC, 200 mV/div, 12 Mpt
+at 125 MSa/s (`captures/loaded-a`, the cartridge's menu on screen). The
+figures and their numbers are `tools/composite-figures.py` on that
+record beside the earlier unterminated paused World 1-1 record, written
+to `docs/composite-figures.json` (the committed measurement; the
+records themselves stay gitignored bench data).
+
+Terminated, on every line of the record: sync tip -0.076 V, blanking
+0.124 V, the burst 0.280 V peak to peak, so the burst swings 1.40 times
+the sync-to-blank step; the transcribed table's own ratio is 1.42.
+Unterminated the same console read 0.50 V sync to blank and 1.00 V of
+burst, a ratio of 2.0: the DC levels came up 2.5 times and the 3.58 MHz
+subcarrier 3.6 times, which is the probe run flattering the chroma by
+about 40 percent before the decoder's filtering, and the origin of the
+28 percent hot saturation above. This console's absolute levels into
+75 ohms sit below the table's (sync-to-blank 0.200 V against 0.264 V,
+and its sync tip below zero volts), which the recovery's normalisation
+onto the table's sync and blanking is exactly built to absorb. The line
+period measures 63.512 us, the NES's 2728-of-2730 grid (63.509 us),
+against broadcast's 63.556.
+
+The terminated paused World 1-1 sky, scored through the identical
+path, is the confirmation this addendum does not yet carry: the
+console needs its Mario paused again.
