@@ -2,3 +2,4 @@
 /crates/ntsc-oracle/vendor
 /goldens
 /captures
+__pycache__/
