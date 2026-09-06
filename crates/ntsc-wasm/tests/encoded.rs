@@ -57,3 +57,29 @@ fn the_encoded_samples_decode_to_push_frames_bytes() {
     assert_eq!(&p[13..], &a.decoder().uv_taps[..]);
     let _ = Phase::new(0);
 }
+
+/// `advance` moves the phase exactly as encoding the frame would, and
+/// the encoder's constants are the levels and the grid, not a copy.
+#[test]
+fn advance_carries_the_phase_as_encode_does() {
+    let mut a = NesPipeline::new("comb3");
+    let mut b = NesPipeline::new("comb3");
+    let colour = vec![0x16u8; 341 * 262];
+    let emphasis = vec![0u8; 341 * 262];
+    for parity in [0u8, 2, 1, 2, 0] {
+        a.encode(&colour, &emphasis, parity);
+        b.advance(parity);
+        assert_eq!(a.origin(), b.origin(), "after parity {parity}");
+    }
+    let p = a.encoder_params();
+    let l = ntsc_source_nes::Levels::transcribed();
+    assert_eq!(&p[0..4], &l.low[..]);
+    assert_eq!(&p[12..16], &l.high_attenuated[..]);
+    assert_eq!(p[16], l.sync);
+    assert_eq!(p[19], l.blank);
+    assert_eq!(p[24] as usize, ntsc_source_nes::SAMPLES_PER_DOT);
+    assert_eq!(p[25] as usize, 341);
+    assert_eq!(p[26] as usize, 262);
+    assert_eq!(p[27] as usize, 8, "the short line's deficit");
+    assert_eq!(p[28] as usize, 2728 % 12, "the phase step per line");
+}

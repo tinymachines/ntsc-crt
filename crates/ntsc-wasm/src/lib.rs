@@ -103,6 +103,40 @@ impl NesPipeline {
         self.row0
     }
 
+    /// The encoder's constants, for an encoder elsewhere that must do
+    /// this one's arithmetic: the transcribed levels [low x4, high x4,
+    /// low attenuated x4, high attenuated x4, sync, burst low, burst
+    /// high, blank], the three emphasis waves and the colourburst wave,
+    /// then the grid: samples per dot, dots per line, lines, the short
+    /// last line's deficit, and the phase step per line (the line length
+    /// modulo the twelve-sample cycle). Never typed anywhere else.
+    pub fn encoder_params(&self) -> Vec<f32> {
+        let l = &self.levels;
+        let geo = ntsc_grid::Geometry::nes();
+        let full = geo.line_len(FrameParity::Even, 0);
+        let short = geo.line_len(FrameParity::OddShort, ntsc_source_nes::LINES - 1);
+        let mut v = Vec::new();
+        v.extend_from_slice(&l.low);
+        v.extend_from_slice(&l.high);
+        v.extend_from_slice(&l.low_attenuated);
+        v.extend_from_slice(&l.high_attenuated);
+        v.extend_from_slice(&[l.sync, l.burst_low, l.burst_high, l.blank]);
+        v.extend(levels::EMPHASIS_WAVES.iter().map(|w| *w as f32));
+        v.push(levels::COLORBURST_WAVE as f32);
+        v.push(ntsc_source_nes::SAMPLES_PER_DOT as f32);
+        v.push(ntsc_source_nes::DOTS_PER_LINE as f32);
+        v.push(ntsc_source_nes::LINES as f32);
+        v.push((full - short) as f32);
+        v.push((full % 12) as f32);
+        v
+    }
+
+    /// Move the chained phase past one frame of `parity` without
+    /// encoding it: what an encoder elsewhere calls after its frame.
+    pub fn advance(&mut self, parity: u8) {
+        self.origin = ntsc_grid::Geometry::nes().next_origin(self.origin, Self::parity(parity));
+    }
+
     /// The decoder's constants, for a decoder elsewhere that must do this
     /// one's arithmetic: [comb w0, w1, w2, black, 1/(white-black), amp_k
     /// (the demodulation amplitude with the saturation correction and the
@@ -282,6 +316,19 @@ mod wasm {
 
         pub fn decoder_params(&self) -> Vec<f32> {
             self.inner.decoder_params()
+        }
+
+        pub fn encoder_params(&self) -> Vec<f32> {
+            self.inner.encoder_params()
+        }
+
+        /// The phase the next frame is encoded at, 0..12.
+        pub fn origin(&self) -> u8 {
+            self.inner.origin().get()
+        }
+
+        pub fn advance(&mut self, parity: u8) {
+            self.inner.advance(parity);
         }
 
         pub fn tick(&mut self, dt_ns: f64) -> u32 {
