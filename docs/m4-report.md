@@ -202,3 +202,20 @@ which the old finder fails by 75 mV). The scored sky region above is
 unchanged by construction: a u8 record's medians are its quantized
 values, the same ones the crest gave. Tagged 0.2.4.
 
+## Fifth addendum, 2026-09-06: the front end, on both sides
+
+The console's N6 gate scored every flat region of a bars frame through
+the card model and `recover_nes` against the console's own synthesis
+through the identical decoder, and missed its hue and saturation
+tolerances on 69 of 436 regions by a chroma residual it located in this
+model's anti-alias lowpass: the encoder's chroma is a square wave, the
+filter removes its harmonics, a decoder fed the raw synthesis sees the
+eleventh and thirteenth aliased onto the fundamental at twelve samples
+a cycle, and the two sides hand the identical decoder a different
+fundamental. The comparison procedure was the flaw, not either side:
+a synthesis compared with a capture must carry the capture's band
+limit. `front_end` is the model's lowpass alone (tests/front_end.rs:
+the model at the grid rate frame for frame, unit DC gain, the third
+harmonic of a colour gone and its fundamental kept), and the reference
+side of every capture comparison goes through it first. Tagged 0.2.7.
+

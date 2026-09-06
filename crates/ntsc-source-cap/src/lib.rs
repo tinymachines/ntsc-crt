@@ -76,6 +76,76 @@ fn interp8(s: &[f32], x: f64) -> f32 {
     (acc / wsum) as f32
 }
 
+/// The card model's anti-alias lowpass: a Hamming-windowed sinc at
+/// 6.5 MHz over 41 taps at the grid rate, normalised to unit DC gain. A
+/// real card has one; this is the authored one.
+pub fn anti_alias_taps() -> Vec<f64> {
+    let n = 41usize;
+    let m = n / 2;
+    let fc = 6.5e6 / GRID_RATE;
+    let mut t: Vec<f64> = (0..n)
+        .map(|i| {
+            let x = i as f64 - m as f64;
+            let h = if x == 0.0 {
+                2.0 * fc
+            } else {
+                (2.0 * std::f64::consts::PI * fc * x).sin() / (std::f64::consts::PI * x)
+            };
+            let w = 0.54 - 0.46 * (2.0 * std::f64::consts::PI * i as f64 / (n - 1) as f64).cos();
+            h * w
+        })
+        .collect();
+    let s: f64 = t.iter().sum();
+    for v in &mut t {
+        *v /= s;
+    }
+    t
+}
+
+fn lowpass(grid: &[f32], taps: &[f64]) -> Vec<f32> {
+    let m = taps.len() / 2;
+    (0..grid.len())
+        .map(|i| {
+            taps.iter()
+                .enumerate()
+                .map(|(k, t)| {
+                    let j = (i as isize + k as isize - m as isize).clamp(0, grid.len() as isize - 1) as usize;
+                    t * grid[j] as f64
+                })
+                .sum::<f64>() as f32
+        })
+        .collect()
+}
+
+/// The card model's front end alone, on the grid: the frame's lines
+/// through the anti-alias lowpass, nothing resampled, no offset, no
+/// noise. What a synthesis must go through before it is compared with a
+/// capture, so both sides carry the same band limit: the encoder's
+/// chroma is a square wave whose harmonics above the filter a card never
+/// sees and a decoder fed the raw synthesis does (the console's N6 gate
+/// measured the difference as a percent of saturation and a fraction of
+/// a degree, 2026-09-06). Held to `capture_model` at the grid rate in
+/// tests/front_end.rs.
+pub fn front_end(frame: &CompositeFrame) -> CompositeFrame {
+    let mut grid = Vec::new();
+    for l in &frame.lines {
+        grid.extend_from_slice(&l.samples);
+    }
+    let filtered = lowpass(&grid, &anti_alias_taps());
+    let mut at = 0;
+    let lines = frame
+        .lines
+        .iter()
+        .map(|l| {
+            let n = l.samples.len();
+            let samples = filtered[at..at + n].to_vec();
+            at += n;
+            CompositeLine { samples, sync_start: l.sync_start, burst_start: l.burst_start, active_start: l.active_start }
+        })
+        .collect();
+    CompositeFrame { profile: frame.profile.clone(), lines, frame_parity: frame.frame_parity, phase_at_origin: frame.phase_at_origin }
+}
+
 /// The capture-card model: concatenate the frame's lines, anti-alias
 /// lowpass (windowed sinc, 6.5 MHz, 41 taps: a real card has one),
 /// sample at `declared_rate_hz * (1 + rate_error_ppm/1e6)`, add a DC
@@ -95,42 +165,8 @@ pub fn capture_model(
         }
     }
     // Anti-alias lowpass at the grid rate.
-    let taps: Vec<f64> = {
-        let n = 41usize;
-        let m = n / 2;
-        let fc = 6.5e6 / GRID_RATE;
-        let mut t: Vec<f64> = (0..n)
-            .map(|i| {
-                let x = i as f64 - m as f64;
-                let h = if x == 0.0 {
-                    2.0 * fc
-                } else {
-                    (2.0 * std::f64::consts::PI * fc * x).sin() / (std::f64::consts::PI * x)
-                };
-                let w = 0.54
-                    - 0.46 * (2.0 * std::f64::consts::PI * i as f64 / (n - 1) as f64).cos();
-                h * w
-            })
-            .collect();
-        let s: f64 = t.iter().sum();
-        for v in &mut t {
-            *v /= s;
-        }
-        t
-    };
-    let m = taps.len() / 2;
-    let filtered: Vec<f32> = (0..grid.len())
-        .map(|i| {
-            taps.iter()
-                .enumerate()
-                .map(|(k, t)| {
-                    let j = (i as isize + k as isize - m as isize)
-                        .clamp(0, grid.len() as isize - 1) as usize;
-                    t * grid[j] as f64
-                })
-                .sum::<f64>() as f32
-        })
-        .collect();
+    let taps = anti_alias_taps();
+    let filtered = lowpass(&grid, &taps);
     let actual_rate = declared_rate_hz * (1.0 + rate_error_ppm / 1e6);
     let n_out = (grid.len() as f64 * actual_rate / GRID_RATE) as usize - 8;
     let mut lcg = seed.wrapping_mul(2862933555777941757).wrapping_add(3037000493);
