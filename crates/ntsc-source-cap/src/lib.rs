@@ -183,6 +183,34 @@ pub fn capture_model(
     }
 }
 
+/// Falling crossings of the sync threshold that begin a sync pulse: the
+/// signal stays below the threshold for at least a microsecond after
+/// them. A chroma trough is not one: the NES's darkest colours swing
+/// below the threshold for half a subcarrier cycle (the console's bars
+/// cartridge at luma row 0 read the rate 145 ppm wrong on a 0 ppm
+/// capture before this qualification, 2026-09-06). Sub-sample by linear
+/// interpolation, as before.
+fn sync_edges(s: &[f32], threshold: f32, rate_hz: f64) -> Vec<f64> {
+    let min_low = (1.0e-6 * rate_hz) as usize;
+    let mut edges = Vec::new();
+    let mut i = 0;
+    while i + 1 < s.len() {
+        if s[i] >= threshold && s[i + 1] < threshold {
+            let mut j = i + 1;
+            while j < s.len() && s[j] < threshold {
+                j += 1;
+            }
+            if j - (i + 1) >= min_low {
+                edges.push(i as f64 + (s[i] - threshold) as f64 / (s[i] - s[i + 1]) as f64);
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    edges
+}
+
 /// The NES layout, in grid samples: ntsc-source-nes's segment map times
 /// its eight samples per dot. Sync falls at dot 277; the burst is dots
 /// 306..=320, ten full subcarrier cycles; the pre-sync blank at dots
@@ -246,12 +274,7 @@ pub fn recover_nes_with(cap: &Capture, lock_burst: bool) -> Recovered {
     let tip = sorted[s.len() / 100];
     let threshold = tip + (nes_blank - nes_sync) / 2.0;
 
-    let mut edges = Vec::new();
-    for i in 0..s.len() - 1 {
-        if s[i] >= threshold && s[i + 1] < threshold {
-            edges.push(i as f64 + (s[i] - threshold) as f64 / (s[i] - s[i + 1]) as f64);
-        }
-    }
+    let edges = sync_edges(s, threshold, cap.declared_rate_hz);
     assert!(edges.len() > 500, "not enough sync edges: {}", edges.len());
 
     let nominal_h = cap.declared_rate_hz * nl::LINE as f64 / GRID_RATE;
@@ -435,12 +458,7 @@ pub fn recover_with(cap: &Capture, lock_burst: bool) -> Recovered {
     let threshold = tip + 0.143;
 
     // All falling crossings, sub-sample by linear interpolation.
-    let mut edges = Vec::new();
-    for i in 0..s.len() - 1 {
-        if s[i] >= threshold && s[i + 1] < threshold {
-            edges.push(i as f64 + (s[i] - threshold) as f64 / (s[i] - s[i + 1]) as f64);
-        }
-    }
+    let edges = sync_edges(s, threshold, cap.declared_rate_hz);
     assert!(edges.len() > 500, "not enough sync edges: {}", edges.len());
 
     // Walk at the nominal line period, then least-squares the period.

@@ -219,3 +219,22 @@ the model at the grid rate frame for frame, unit DC gain, the third
 harmonic of a colour gone and its fundamental kept), and the reference
 side of every capture comparison goes through it first. Tagged 0.2.7.
 
+## Sixth addendum, 2026-09-06: what the console's bars cartridge found
+
+Scored with the front end on both sides and the region margin derived
+from the decoder's chroma filter, blargg's full_palette bars were still
+too narrow (sixteen dots against a settling distance of five each
+side), so the console repository authored a bars cartridge of
+thirty-two-dot cells (nes: testrom::bars_program), the twelve hues at
+one luma row and the backdrop, the row stepping every two seconds. At
+luma rows 1, 2 and 3 every region held the plan's tolerances (worst
+luma 0.0001, hue 0.3 degrees, saturation 0.0012). At luma row 0 every
+hue missed by a rotation that grew with the bar's position on the
+line, and the recovery reported the rate 145 ppm wrong on a 0 ppm
+capture: the darkest colours' low level, after the card's filter, dips
+below the sync threshold for half a subcarrier cycle, and every such
+trough was a sync edge to the line walk. Sync edges are now qualified
+by a microsecond of low level after the crossing (tests/front_end.rs,
+the luma-0 bars at 5 ppm recovered within 2 ppm, 312 wrong before).
+The real records are unchanged. Tagged 0.2.8.
+

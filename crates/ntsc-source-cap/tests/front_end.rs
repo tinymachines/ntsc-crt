@@ -54,3 +54,30 @@ fn the_front_end_is_the_card_models_filter_frame_for_frame() {
     assert!(h3_flt / h3_raw < 0.2, "the third harmonic: {h3_flt} of {h3_raw}");
     eprintln!("front end: model vs front end within {worst:.1e}; fundamental {:.3} of raw, third harmonic {:.3} of raw", fund_flt / fund_raw, h3_flt / h3_raw);
 }
+
+/// The NES's darkest colours (luma row 0) swing below blanking by more
+/// than half the sync depth after the card's filter, so a threshold
+/// crossing alone is not a sync edge. A luma-0 bars frame modelled at
+/// 5 ppm must recover within 2 ppm of it (before the pulse-width
+/// qualification it read 145 ppm wrong at 0 ppm and 312 at 5).
+#[test]
+fn the_darkest_colours_do_not_pass_for_sync_edges() {
+    let levels = ntsc_source_nes::Levels::transcribed();
+    let mut dots = ntsc_testgen::solid(FrameParity::Even, 0x0f, 0);
+    for row in 0..240 {
+        for dot in 1..257 {
+            dots.set(row, dot, [0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08][(dot - 1) / 32], 0);
+        }
+    }
+    let f = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(0));
+    let cap = capture_model(&[&f, &f, &f], 125_000_000.0, 5.0, 0.0, 0.0, 1);
+    let rec = ntsc_source_cap::recover_nes(&cap);
+    assert!((rec.rate_error_ppm - 5.0).abs() < 2.0, "recovered {:+.1} ppm on a 5 ppm capture of luma-0 bars", rec.rate_error_ppm);
+    let fe = front_end(&f);
+    let worst = (20..220)
+        .flat_map(|line| (24..2040).map(move |i| (line, i)))
+        .map(|(line, i)| (rec.frame.lines[line].samples[i] - fe.lines[line].samples[i]).abs())
+        .fold(0.0f32, f32::max);
+    assert!(worst < 0.005, "the recovered picture differs from the front-ended synthesis by {worst} V");
+    eprintln!("luma-0 bars: recovered {:+.1} ppm, worst sample {worst:.4} V", rec.rate_error_ppm);
+}
