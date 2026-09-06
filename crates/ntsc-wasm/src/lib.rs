@@ -27,6 +27,16 @@ pub struct NesPipeline {
 pub const OUT_WIDTH: usize = 2048;
 pub const OUT_HEIGHT: usize = 240;
 
+/// One encoded frame for a decoder elsewhere: `samples` is `lines` of
+/// `line_len` each, `phases` the subcarrier phase at sample 0 of each
+/// line (0..12), `active_start` the first active sample of a line.
+pub struct EncodedFrame {
+    pub samples: Vec<f32>,
+    pub phases: Vec<u8>,
+    pub line_len: usize,
+    pub active_start: usize,
+}
+
 impl NesPipeline {
     /// `rung` is "notch" (Rung A) or "comb3" (Rung C); anything else is
     /// refused by name, not defaulted.
@@ -45,18 +55,88 @@ impl NesPipeline {
         }
     }
 
-    /// Encode and decode one frame. `colour` and `emphasis` are 341 x
-    /// 262 row-major dot planes; `parity` 0 = Even, 1 = OddFull,
-    /// 2 = OddShort. Output is RGBA8, `OUT_WIDTH` x `OUT_HEIGHT`.
-    pub fn push_frame(&mut self, colour: &[u8], emphasis: &[u8], parity: u8) -> Vec<u8> {
-        let parity = match parity {
+    /// Encode one frame at the chained origin and carry the phase: the
+    /// composite samples, every line padded to the full line length
+    /// with its last sample (a short line's tail is never decoded), for
+    /// a decoder elsewhere (the console page's WebGPU decode). The
+    /// per-line phases and the active start are `line_phases` and
+    /// `active_start`; the parity codes are `push_frame`'s.
+    pub fn encode(&mut self, colour: &[u8], emphasis: &[u8], parity: u8) -> EncodedFrame {
+        let dots = DotFrame {
+            parity: Self::parity(parity),
+            colour: colour.to_vec(),
+            emphasis: emphasis.to_vec(),
+        };
+        let frame = encode_frame(&self.levels, &dots, self.origin);
+        self.origin = frame.next_origin();
+        let n = frame.lines[0].samples.len();
+        let mut samples = Vec::with_capacity(frame.lines.len() * n);
+        let mut phases = Vec::with_capacity(frame.lines.len());
+        for (i, l) in frame.lines.iter().enumerate() {
+            samples.extend_from_slice(&l.samples);
+            samples.extend(std::iter::repeat_n(*l.samples.last().unwrap(), n - l.samples.len()));
+            phases.push(frame.phase_at(i, 0).get());
+        }
+        EncodedFrame { samples, phases, line_len: n, active_start: frame.lines[0].active_start }
+    }
+
+    fn parity(parity: u8) -> FrameParity {
+        match parity {
             0 => FrameParity::Even,
             1 => FrameParity::OddFull,
             2 => FrameParity::OddShort,
             other => panic!("parity {other} is not 0/1/2"),
-        };
+        }
+    }
+
+    /// The phase the next frame is encoded at.
+    pub fn origin(&self) -> Phase {
+        self.origin
+    }
+
+    pub fn decoder(&self) -> &Decoder {
+        &self.decoder
+    }
+
+    /// The first decoded line (1 on the comb).
+    pub fn row0(&self) -> usize {
+        self.row0
+    }
+
+    /// The decoder's constants, for a decoder elsewhere that must do this
+    /// one's arithmetic: [comb w0, w1, w2, black, 1/(white-black), amp_k
+    /// (the demodulation amplitude with the saturation correction and the
+    /// chroma gain folded in), r_from_v, g_from_u, g_from_v, b_from_u,
+    /// demod_offset, uv_decimation, first decoded row], then the
+    /// decimated UV lowpass taps. Never typed anywhere else.
+    pub fn decoder_params(&self) -> Vec<f32> {
+        let d = &self.decoder;
+        let scale = 1.0 / (d.white - d.black);
+        let mut v = vec![
+            d.comb_weights[0],
+            d.comb_weights[1],
+            d.comb_weights[2],
+            d.black,
+            scale,
+            scale * ntsc_decode::tables::CHROMA_SAT_CORRECTION / d.chroma_gain,
+            d.r_from_v,
+            d.g_from_u,
+            d.g_from_v,
+            d.b_from_u,
+            d.demod_offset as f32,
+            d.uv_decimation as f32,
+            self.row0 as f32,
+        ];
+        v.extend_from_slice(&d.uv_taps);
+        v
+    }
+
+    /// Encode and decode one frame. `colour` and `emphasis` are 341 x
+    /// 262 row-major dot planes; `parity` 0 = Even, 1 = OddFull,
+    /// 2 = OddShort. Output is RGBA8, `OUT_WIDTH` x `OUT_HEIGHT`.
+    pub fn push_frame(&mut self, colour: &[u8], emphasis: &[u8], parity: u8) -> Vec<u8> {
         let dots = DotFrame {
-            parity,
+            parity: Self::parity(parity),
             colour: colour.to_vec(),
             emphasis: emphasis.to_vec(),
         };
@@ -155,6 +235,9 @@ mod wasm {
     pub struct Pipeline {
         inner: super::NesPipeline,
         pacing: super::Pacing,
+        last_phases: Vec<u8>,
+        line_len: usize,
+        active_start: usize,
     }
 
     #[wasm_bindgen]
@@ -164,11 +247,41 @@ mod wasm {
             Pipeline {
                 inner: super::NesPipeline::new(rung),
                 pacing: super::Pacing::nes_rendering_enabled(),
+                last_phases: Vec::new(),
+                line_len: 0,
+                active_start: 0,
             }
         }
 
         pub fn push_frame(&mut self, colour: &[u8], emphasis: &[u8], parity: u8) -> Vec<u8> {
             self.inner.push_frame(colour, emphasis, parity)
+        }
+
+        /// The composite samples of one frame (every line padded to the
+        /// full length), the phase carried; `line_phases` and the two
+        /// geometry numbers describe the last one encoded.
+        pub fn encode(&mut self, colour: &[u8], emphasis: &[u8], parity: u8) -> Vec<f32> {
+            let f = self.inner.encode(colour, emphasis, parity);
+            self.last_phases = f.phases;
+            self.line_len = f.line_len;
+            self.active_start = f.active_start;
+            f.samples
+        }
+
+        pub fn line_phases(&self) -> Vec<u8> {
+            self.last_phases.clone()
+        }
+
+        pub fn line_len(&self) -> usize {
+            self.line_len
+        }
+
+        pub fn active_start(&self) -> usize {
+            self.active_start
+        }
+
+        pub fn decoder_params(&self) -> Vec<f32> {
+            self.inner.decoder_params()
         }
 
         pub fn tick(&mut self, dt_ns: f64) -> u32 {
