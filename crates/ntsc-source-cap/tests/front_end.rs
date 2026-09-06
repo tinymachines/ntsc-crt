@@ -29,10 +29,7 @@ fn the_front_end_is_the_card_models_filter_frame_for_frame() {
     // The middle frame of the three against the front end, its first and
     // last two kernel widths left out.
     let half = anti_alias_taps().len();
-    let mut worst = 0.0f32;
-    for i in half..n - half {
-        worst = worst.max((cap.samples[n + i] - fe_flat[i]).abs());
-    }
+    let worst = fe_flat[half..n - half].iter().zip(&cap.samples[n + half..2 * n - half]).map(|(a, b)| (a - b).abs()).fold(0.0f32, f32::max);
     assert!(worst < 1e-5, "the model at the grid rate and the front end differ by {worst}");
     // Unit DC gain: the sync tip is a flat run and comes through at its level.
     let tip = fe.lines[10].samples[277 * 8 + 40];
