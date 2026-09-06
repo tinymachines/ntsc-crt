@@ -212,3 +212,31 @@ fn the_real_recording_decodes_to_bars() {
         }
     }
 }
+
+/// The re-referencing's precision, NES profile: a modelled capture with
+/// a DC offset must come back with blanking within 1 mV of the table's
+/// and the sync depth within half a percent, or every luma the capture
+/// gate scores carries the error as gain (the console's N6 gate read
+/// 3.7% before the levels were read off the sync pulses and porches),
+/// and a picture level below blanking must not be taken for it.
+#[test]
+fn nes_auto_level_finds_the_levels_finer_than_a_histogram_bin() {
+    // A solid dark colour: half its picture samples sit below blanking
+    // (row-1 low level), the case the histogram alone took for it.
+    let levels = ntsc_source_nes::Levels::transcribed();
+    let dots = ntsc_testgen::solid(FrameParity::Even, 0x16, 0);
+    let f = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(0));
+    let volts = capture_model(&[&f, &f, &f], 125_000_000.0, 5.0, 0.020, 0.002, 6);
+    let (levelled, tip, blank) = ntsc_source_cap::ingest::auto_level_nes(&volts);
+    let (nes_blank, nes_sync) = (ntsc_source_nes::levels::BLANK, ntsc_source_nes::levels::SYNC);
+    // The model added 20 mV: the peaks it finds are the table's plus that.
+    let blank_err = (blank - 0.020 - nes_blank).abs();
+    let depth_err = ((blank - tip) / (nes_blank - nes_sync) - 1.0).abs();
+    let tol = if std::env::var("MUTATE").is_ok_and(|v| v == "1") { (0.004, 0.02) } else { (0.001, 0.005) };
+    assert!(blank_err < tol.0, "blanking found {:.2} mV off", blank_err * 1000.0);
+    assert!(depth_err < tol.1, "sync depth {:.2}% off", depth_err * 100.0);
+    // And the re-referenced blanking is the table's.
+    let lay_blank = levelled.samples.iter().filter(|s| (**s - nes_blank).abs() < 0.01).count();
+    assert!(lay_blank > levelled.samples.len() / 20, "re-referenced blanking sits at the table's level");
+    eprintln!("blanking {:.2} mV off, sync depth {:.3}% off", blank_err * 1000.0, depth_err * 100.0);
+}

@@ -131,9 +131,61 @@ pub fn auto_level_nes(cap: &Capture) -> (Capture, f32, f32) {
     )
 }
 
-/// Sync tip and blanking as the two lowest well-populated histogram
-/// peaks, in the capture's original units.
+/// Sync tip and blanking, in the capture's original units. The
+/// histogram gives a first look (the two lowest bands each holding at
+/// least 1% of the samples) and that alone was the whole method until
+/// 2026-09-06, when the console's capture gate found two things wrong
+/// with it: a crest is only as fine as its bin (a 1 V span in 256 bins
+/// is 4 mV, which read as a 3.7% luma gain), and a picture level below
+/// blanking (the NES's darkest rows sit under it) is taken for blanking
+/// as soon as it fills a percent of the record, which a colour-bars
+/// frame does. So the histogram now only places a sync threshold, and
+/// the levels are read where nothing but the signal's own structure can
+/// put them: the sync tip as the median inside every sync pulse, the
+/// blanking as the median of the front porch before every pulse.
 fn find_tip_blank(cap: &Capture) -> (f32, f32) {
+    let (tip0, blank0) = histogram_bands(cap);
+    // Halfway from the tip to the second band, which is blanking or a
+    // picture level below it: either way above the tip and below every
+    // picture level, so only sync pulses cross it downward.
+    let threshold = tip0 + (blank0 - tip0) / 2.0;
+    let s = &cap.samples;
+    let us = cap.declared_rate_hz / 1e6;
+    // A horizontal sync is 4.7 us; a pulse shorter than 2 us is not one.
+    let (min_pulse, porch_from, porch_to, tip_from, tip_to) =
+        ((2.0 * us) as usize, (1.3 * us) as usize, (0.4 * us) as usize, (1.0 * us) as usize, (3.5 * us) as usize);
+    let mut porch = Vec::new();
+    let mut tips = Vec::new();
+    let mut i = 1usize;
+    while i < s.len() {
+        if s[i - 1] >= threshold && s[i] < threshold {
+            let mut j = i;
+            while j < s.len() && s[j] < threshold {
+                j += 1;
+            }
+            if j - i >= min_pulse && i >= porch_from && i + tip_to < s.len() {
+                porch.extend_from_slice(&s[i - porch_from..i - porch_to]);
+                tips.extend_from_slice(&s[i + tip_from..i + tip_to.min(j - i)]);
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    assert!(porch.len() > 1000 && tips.len() > 1000, "too few sync pulses to level on: {} porch samples, {} tip samples", porch.len(), tips.len());
+    let median = |v: &mut Vec<f32>| {
+        v.sort_by(|a, b| a.total_cmp(b));
+        v[v.len() / 2]
+    };
+    let (tip, blank) = (median(&mut tips), median(&mut porch));
+    assert!(blank > tip, "sync tip and blanking are not separated: {tip} vs {blank}");
+    (tip, blank)
+}
+
+/// The two lowest bands of the sample histogram each holding at least
+/// 1% of the samples, as bin centres: the first look that places the
+/// sync threshold for `find_tip_blank`.
+fn histogram_bands(cap: &Capture) -> (f32, f32) {
     let mut sorted = cap.samples.clone();
     sorted.sort_by(|a, b| a.total_cmp(b));
     let lo = sorted[sorted.len() / 1000];
@@ -159,15 +211,11 @@ fn find_tip_blank(cap: &Capture) -> (f32, f32) {
         let b = (((s - lo) / width) as isize).clamp(0, bins as isize - 1) as usize;
         hist[b] += 1;
     }
-    // The two lowest local maxima that each hold at least 1% of the
-    // samples, separated by a real valley: sync tip, then blanking.
     let floor = (cap.samples.len() / 100) as u32;
     let mut peaks = Vec::new();
     let mut b = 0usize;
     while b < bins && peaks.len() < 2 {
-        // Find the next bin range whose count clears the floor.
         if hist[b] >= floor {
-            // Climb to the local crest of this band.
             let start = b;
             while b + 1 < bins && hist[b + 1] >= floor {
                 b += 1;

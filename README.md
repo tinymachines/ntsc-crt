@@ -29,7 +29,7 @@ draft). The milestone logs are `docs/m0-report.md` through
 | `ntsc-source-rgb` | RGB framebuffer to `CompositeFrame`: the broadcast encoder per SMPTE ST 170M-2004 (the primary itself, fetched from SMPTE's repository and pinned by hash), held to the published 75% bar levels and a decode roundtrip. |
 | `ntsc-decode` | The separation rungs: notch (A), two-line comb (B, refused by name on the NES profile), three-line comb (C, NES-native weights), and the temporal comb (D, measured: two frames attenuate to 0.866 and cannot cancel; three full frames cancel exactly). Shared QAM tail at the geometric phase, the transcribed inverse matrix, display gamma recorded. |
 | `ntsc-wasm` | The browser bridge: dot frames to RGBA, the drift policy with counted duplicates and drops, plain-Rust core so the native bench measures the page's own code. |
-| `ntsc-source-cap` | Captured waveform to `CompositeFrame`: sync detection, burst lock, sinc resample onto the grid, DC re-referenced. Proven by the synthetic-capture roundtrip against a modelled card (rate mismatch found to 5 ppm, burst lock proven load-bearing by its own mutation). |
+| `ntsc-source-cap` | Captured waveform to `CompositeFrame`: sync detection, burst lock, sinc resample onto the grid, DC re-referenced (the levels read off every sync pulse and front porch, since 0.2.4: the histogram alone was a bin coarse and took a dark picture for blanking). Proven by the synthetic-capture roundtrip against a modelled card (rate mismatch found to 5 ppm, burst lock proven load-bearing by its own mutation). |
 | `ntsc-crt` | `LinearRgbFrame` to `DisplayFrame`: beam, scanlines, phosphor persistence, mask, geometry, in the fixed order, each optional. A model with analytic tests, every parameter authored and labelled so. |
 | `ntsc-oracle` | Test-only, never shipped: blargg's nes_ntsc 0.2.2 built natively (fetched by hash, LGPL), his colour model ported and held to his own compiled palette, the comparison resampler, the recorded alignment, the golden comparison. |
 
@@ -41,7 +41,7 @@ diffed clean on every numeric field.
 ## Commands
 
 ```bash
-cargo test --workspace              # 59 tests: residues, data consistency,
+cargo test --workspace              # 60 tests: residues, data consistency,
                                     # encoder waveform, Rung A physics, and
                                     # (with the vendor fetched) the blargg
                                     # golden; the oracle tests SKIP without

@@ -182,3 +182,23 @@ against broadcast's 63.556.
 The terminated paused World 1-1 sky, scored through the identical
 path, is the confirmation this addendum does not yet carry: the
 console needs its Mario paused again.
+
+## Fourth addendum, 2026-09-06: the levels, read off the signal
+
+The console's N6 capture gate (nes, `capture-score`: every flat region
+of `full_palette.nes` through the card model and `auto_level_nes`,
+scored against the console's own synthesis) found the re-referencing
+a bin coarse: 256 histogram bins over a 1 V span are 4 mV each, 1.4
+percent of the sync depth at either end, which read as a 3.7 percent
+luma gain across the whole frame. And a solid dark colour, half of
+whose picture samples sit below blanking (the table's row-1 low
+level), filled the histogram's second band and was taken for blanking
+outright. `find_tip_blank` now uses the histogram only to place a sync
+threshold; the sync tip is the median inside every sync pulse and
+blanking the median of the front porch before every pulse, which no
+picture can occupy. On the model: blanking within 0.01 mV and the sync
+depth within 0.003 percent (`nes_auto_level_finds_the_levels_finer_than_a_histogram_bin`,
+which the old finder fails by 75 mV). The scored sky region above is
+unchanged by construction: a u8 record's medians are its quantized
+values, the same ones the crest gave. Tagged 0.2.4.
+
