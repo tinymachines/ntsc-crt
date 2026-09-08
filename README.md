@@ -14,8 +14,8 @@ is source-agnostic, has an oracle, and has a way to fail.
 ## Status
 
 All six milestones of the handoff spec are built and closed: M0 (grid
-and contract), M1 (NES encode, Rung A decode, blargg golden), M2 (RGB
-encode, the comb rungs, WASM, the measured budget), M3 (the CRT
+and contract), M1 (the NES encoder, the first decoder, blargg as the
+reference), M2 (RGB encode, the comb filters, WASM, the measured budget), M3 (the CRT
 stages), M4 (the capture source; its real-recording half is one
 capture file away, docs/capture-instructions.md) and M5 (self-counts, `docs/divergences.md`, the spec's v0.3
 draft). The milestone logs are `docs/m0-report.md` through

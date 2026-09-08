@@ -1,4 +1,4 @@
-# M1 report: NES encode, Rung A decode, blargg golden
+# M1 report: the NES encoder, the first decoder (Rung A), blargg as the reference
 
 Run stamp: 2026-09-01, second commit of this repository, rustc stable,
 `cargo test --workspace` 33 tests green, clippy clean, MUTATE=1 reddens

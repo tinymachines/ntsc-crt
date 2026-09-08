@@ -1,4 +1,4 @@
-# M2 report: RGB encode, the comb rungs, WASM, and the measured budget
+# M2 report: RGB encode, the comb filters, WASM, and the measured budget
 
 Run stamp: 2026-09-01, third commit of this repository, rustc 1.97.1,
 `cargo test --workspace` 45 tests green, clippy clean, MUTATE=1 reddens
