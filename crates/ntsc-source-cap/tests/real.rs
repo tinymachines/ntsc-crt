@@ -240,3 +240,34 @@ fn nes_auto_level_finds_the_levels_finer_than_a_histogram_bin() {
     assert!(lay_blank > levelled.samples.len() / 20, "re-referenced blanking sits at the table's level");
     eprintln!("blanking {:.2} mV off, sync depth {:.3}% off", blank_err * 1000.0, depth_err * 100.0);
 }
+
+/// The same precision on a QUANTISED record, the scope's own: u8 codes
+/// sized so the sync is 22.5 codes deep, as the bench's records at 200
+/// mV a division read it (the console's output lands on the scope
+/// below the table's volts), about a code of noise, and blanking placed 0.45 of a code above a code
+/// boundary. A level read as a median can only land on a whole code,
+/// which moves the sync depth by a code in 22 and every scored luma by
+/// 4.5% (nes-bench's warm-up series stepped exactly so, 2026-09-18);
+/// the depth must come back within half a percent. MUTATE_LEVEL=1 reads
+/// the median again and must be red.
+#[test]
+fn nes_auto_level_reads_between_the_codes_of_a_quantised_record() {
+    let levels = ntsc_source_nes::Levels::transcribed();
+    let dots = ntsc_testgen::solid(FrameParity::Even, 0x16, 0);
+    let f = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(0));
+    let (nes_blank, nes_sync) = (ntsc_source_nes::levels::BLANK, ntsc_source_nes::levels::SYNC);
+    let code = (nes_blank - nes_sync) / 22.5;
+    let volts = capture_model(&[&f, &f, &f], 50_000_000.0, 5.0, 0.0, code, 7);
+    // Blanking at code 88.45: the offset that puts it there.
+    let offset = 88.45 - nes_blank / code;
+    let adc = Capture {
+        declared_rate_hz: volts.declared_rate_hz,
+        samples: volts.samples.iter().map(|v| (v / code + offset).round().clamp(0.0, 255.0)).collect(),
+    };
+    let (_, tip, blank) = ntsc_source_cap::ingest::auto_level_nes(&adc);
+    let want = (nes_blank - nes_sync) / code;
+    let depth_err = ((blank - tip) / want - 1.0).abs();
+    eprintln!("quantised: blanking at code {blank:.3} (placed 88.45), sync depth {:.3} codes of {want:.3}, {:.2}% off", blank - tip, depth_err * 100.0);
+    assert!((blank - 88.45).abs() < 0.1, "blanking read at code {blank}, placed at 88.45");
+    assert!(depth_err < 0.005, "sync depth {:.2}% off on a quantised record (MUTATE_LEVEL=1 is the median: red)", depth_err * 100.0);
+}

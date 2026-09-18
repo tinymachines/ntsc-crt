@@ -261,3 +261,23 @@ emits that shape, pinned an edge at a time by
 from 245..247 to 244..246 and its anchor edge (row 244's) is unchanged,
 so every recovered row keeps its number and the real records score as
 before. The old onset was 64 dots (0.19 line) late. Tagged 0.2.10.
+
+
+## Eighth addendum, 2026-09-18: the levels read between the codes
+
+`auto_level_nes` read the sync tip and blanking as medians, which on a
+quantised record are whole codes. The bench's records are u8 at 200 mV
+a division, where the console's sync is 22.5 codes deep, so the median
+could only say 22 or 23, and the gain every scored luma carries moved
+4.5% whenever the porch's true level crossed a half code. The bench's
+warm-up series found it: ten captures of one still title over half an
+hour, the regions' luma stepping 0.012 between two captures five
+minutes apart and holding there, while the record itself moved a
+hundredth of a code (blanking's mean 88.48 then 88.51, its median 88
+then 89). The levels are now the mean of each band's middle 80%,
+robust to edges and ringing as the median was and finer than the step,
+held by `nes_auto_level_reads_between_the_codes_of_a_quantised_record`
+(a synthetic record quantised to 22.5 codes of sync, blanking placed at
+a code and 0.45: read within a tenth of a code and the depth within
+half a percent; `MUTATE_LEVEL=1`, the median, is red at 2.2%). The
+continuous-volts test was blind to it by construction. Tagged 0.2.11.

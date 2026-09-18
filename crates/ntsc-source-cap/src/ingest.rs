@@ -141,8 +141,9 @@ pub fn auto_level_nes(cap: &Capture) -> (Capture, f32, f32) {
 /// as soon as it fills a percent of the record, which a colour-bars
 /// frame does. So the histogram now only places a sync threshold, and
 /// the levels are read where nothing but the signal's own structure can
-/// put them: the sync tip as the median inside every sync pulse, the
-/// blanking as the median of the front porch before every pulse.
+/// put them: the sync tip as the centre of the samples inside every
+/// sync pulse, the blanking as the centre of the front porch before
+/// every pulse (a trimmed mean since 2026-09-18, the median before).
 fn find_tip_blank(cap: &Capture) -> (f32, f32) {
     let (tip0, blank0) = histogram_bands(cap);
     // Halfway from the tip to the second band, which is blanking or a
@@ -173,11 +174,26 @@ fn find_tip_blank(cap: &Capture) -> (f32, f32) {
         }
     }
     assert!(porch.len() > 1000 && tips.len() > 1000, "too few sync pulses to level on: {} porch samples, {} tip samples", porch.len(), tips.len());
-    let median = |v: &mut Vec<f32>| {
+    // The centre of each band as the mean of its middle 80%: robust to a
+    // pulse's edges and a porch's ringing as the median is, but finer
+    // than the data's quantisation step, which the median is not. On a
+    // u8 record at 200 mV a division the sync is 22.5 codes deep, a
+    // median can only answer 22 or 23, and the luma every capture is
+    // scored at moved 4.5% when the porch's true level crossed a half
+    // code (nes-bench's warm-up series, 2026-09-18: blanking 88.48 then
+    // 88.51 codes, the median 88 then 89, the regions' luma stepping
+    // 0.012 between two captures five minutes apart while the record
+    // itself moved a hundredth of a code). MUTATE_LEVEL=1 is the median
+    // again, and tests/real.rs's quantised capture must go red.
+    let centre = |v: &mut Vec<f32>| {
         v.sort_by(|a, b| a.total_cmp(b));
-        v[v.len() / 2]
+        if std::env::var("MUTATE_LEVEL").is_ok_and(|m| m == "1") {
+            return v[v.len() / 2];
+        }
+        let (a, b) = (v.len() / 10, v.len() - v.len() / 10);
+        v[a..b].iter().map(|x| *x as f64).sum::<f64>() as f32 / (b - a) as f32
     };
-    let (tip, blank) = (median(&mut tips), median(&mut porch));
+    let (tip, blank) = (centre(&mut tips), centre(&mut porch));
     assert!(blank > tip, "sync tip and blanking are not separated: {tip} vs {blank}");
     (tip, blank)
 }
