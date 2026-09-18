@@ -12,9 +12,21 @@
 //!   subtlety are ignored: dot d of row r is drawn from `dots[r][d]`, and
 //!   the porch boundaries use the rendering-row table uniformly (the
 //!   post-render table prints back porch at 302 vs 303).
-//! - Vertical sync serration is modelled at line granularity: vsync rows
-//!   are sync level except a blank window at dots 254..286. Its purpose is
-//!   sync detection, which is M4's capture source.
+//! - Vertical sync was modelled at line granularity until 2026-09-18
+//!   (rows 245..247 low from dot 0, a blank window at dots 254..286);
+//!   it is now the shape measured on the switch-level 2C02 (`2c02`'s
+//!   `vsync-probe`, the sync-tip leg read every half-step through a
+//!   frame) and confirmed on a real console's record (nes-bench run
+//!   20260918-135721: the broad pulse begins exactly one line after the
+//!   preceding horizontal sync, 0.934 line long, three of them a line
+//!   apart): three broad pulses, each from the horizontal sync position
+//!   of rows 244, 245 and 246 (dot 277 here; the die's DAC shows every
+//!   sync three dots later than the table's numbering, sync onset
+//!   included, so relative to the horizontal sync nothing moves) to dot
+//!   253 of the row after, a 23-dot blank serration at 254..276 on rows
+//!   245..247, no burst on rows 244..246, and row 247 closing with an
+//!   ordinary horizontal sync and burst. The old placement put the onset
+//!   64 dots (0.19 line) late and the serration 9 dots wide.
 
 use ntsc_grid::{CompositeFrame, CompositeLine, CompositeSource, Geometry, Phase};
 
@@ -119,14 +131,27 @@ pub fn segment(row: usize, dot: usize) -> Segment {
             302..=305 | 321..=325 | 268..=276 => Segment::Blank,
             _ => Segment::Picture,
         },
-        // Vertical sync rows: low, with the serration window blank.
-        245..=247 => {
-            if (254..286).contains(&dot) {
-                Segment::Blank
-            } else {
+        // The vertical sync as the die emits it (module doc): row 244's
+        // horizontal sync widens into the first broad pulse, which runs
+        // to dot 253 of row 245; rows 245 and 246 do the same; row 247
+        // carries the last serration blank and then an ordinary sync
+        // and burst. No burst on 244..246.
+        244 => {
+            if dot >= 277 {
                 Segment::Sync
+            } else {
+                Segment::Blank
             }
         }
+        245..=246 => match dot {
+            0..=253 | 277.. => Segment::Sync,
+            _ => Segment::Blank,
+        },
+        247 => match dot {
+            0..=253 | 277..=301 => Segment::Sync,
+            306..=320 => Segment::Burst,
+            _ => Segment::Blank,
+        },
         // Blanking rows before and after vsync: sync + burst, blank picture.
         _ => match dot {
             277..=301 => Segment::Sync,

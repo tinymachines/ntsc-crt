@@ -121,6 +121,50 @@ fn segments_carry_the_right_levels() {
     assert_eq!(frame.lines[246].samples[260 * 8], want.blank);
 }
 
+/// The vertical sync's shape is the die's (ntsc-source-nes module doc):
+/// the broad pulse begins where row 244's horizontal sync begins and
+/// runs to dot 253 of the next row, the serration blank is 254..276,
+/// rows 244..246 carry no burst, and row 247 closes with an ordinary
+/// sync and burst. Each edge is pinned one dot either side.
+#[test]
+fn the_vertical_sync_is_the_dies() {
+    let want = Levels::transcribed();
+    let frame = encode_frame(&enc_levels(), &DotFrame::filled(FrameParity::Even, 0x0f, 0), Phase::new(0));
+    let at = |row: usize, dot: usize| frame.lines[row].samples[dot * 8];
+    let burst = |row: usize| {
+        let v = at(row, 310);
+        v == want.burst_high || v == want.burst_low
+    };
+    // Row 243: an ordinary blanking row, sync 277..301 and a burst.
+    assert_eq!(at(243, 301), want.sync);
+    assert_eq!(at(243, 302), want.blank);
+    assert!(burst(243));
+    // Row 244: blank to the onset, then low to the end of the row, no burst.
+    assert_eq!(at(244, 276), want.blank);
+    assert_eq!(at(244, 277), want.sync, "the onset is the horizontal sync position of row 244");
+    assert_eq!(at(244, 340), want.sync);
+    assert!(!burst(244), "the first broad pulse runs through row 244's burst");
+    // Rows 245 and 246: low from dot 0 to 253, the serration blank 254..276, low again from 277.
+    for row in [245, 246] {
+        assert_eq!(at(row, 0), want.sync, "row {row}");
+        assert_eq!(at(row, 253), want.sync, "row {row}");
+        assert_eq!(at(row, 254), want.blank, "row {row}");
+        assert_eq!(at(row, 276), want.blank, "row {row}");
+        assert_eq!(at(row, 277), want.sync, "row {row}");
+        assert_eq!(at(row, 340), want.sync, "row {row}");
+        assert!(!burst(row), "row {row}");
+    }
+    // Row 247: the last serration, then an ordinary sync and burst.
+    assert_eq!(at(247, 253), want.sync);
+    assert_eq!(at(247, 254), want.blank);
+    assert_eq!(at(247, 277), want.sync);
+    assert_eq!(at(247, 301), want.sync);
+    assert_eq!(at(247, 302), want.blank);
+    assert!(burst(247), "row 247 closes with a burst");
+    assert_eq!(at(248, 276), want.blank);
+    assert!(burst(248));
+}
+
 #[test]
 fn line_lengths_match_the_geometry() {
     for parity in [FrameParity::Even, FrameParity::OddFull, FrameParity::OddShort] {

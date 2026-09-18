@@ -226,12 +226,19 @@ mod nes_lay {
     pub const DC_END: usize = 277 * 8 - 8;
     pub const ACTIVE_START: usize = 8;
     pub const LINE: usize = 2728;
-    pub const VSYNC_FIRST: usize = 245;
-    pub const VSYNC_LAST: usize = 247;
+    /// The rows with no colour burst after their sync edge: the three
+    /// broad pulses begin at the horizontal sync position of rows
+    /// 244..246 and run through where the burst would be. Row 247's
+    /// edge is an ordinary sync with a burst (the die's shape,
+    /// ntsc-source-nes's module doc; 245..247 until 2026-09-18).
+    pub const VSYNC_FIRST: usize = 244;
+    pub const VSYNC_LAST: usize = 246;
     /// The walked window that first reads mostly-low starts at row
-    /// 244's sync edge: its span covers row 244's sync tail plus row
-    /// 245's long vsync run. Measured on the synthetic NES capture and
-    /// pinned by its test.
+    /// 244's sync edge: the first broad pulse begins there and runs to
+    /// row 245's dot 253, so the window is low but for the 23-dot
+    /// serration. Measured on the synthetic NES capture and pinned by
+    /// its test; the same edge under the old line-granular sync, so
+    /// every recovered row keeps its number.
     pub const FIRST_BROAD_ROW: usize = 244;
 }
 

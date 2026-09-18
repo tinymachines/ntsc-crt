@@ -238,3 +238,26 @@ by a microsecond of low level after the crossing (tests/front_end.rs,
 the luma-0 bars at 5 ppm recovered within 2 ppm, 312 wrong before).
 The real records are unchanged. Tagged 0.2.8.
 
+
+## Seventh addendum, 2026-09-18: the vertical sync's shape is the die's
+
+The NES encoder's vertical sync had been authored at line granularity
+(rows 245 to 247 low from dot 0, a blank window at dots 254..286),
+enough for the recovery's broad-pulse detector and never measured.
+The bench found the part's controller poll six tenths of a line
+earlier than the model's on two screens with every line placed from
+that sync, so the switch-level 2C02 was asked (2c02's `vsync-probe`:
+the DAC's sync-tip leg every half-step through a frame): three broad
+pulses, each beginning where a row's horizontal sync begins, on rows
+244, 245 and 246, and running to dot 253 of the row after (in the
+table's dot numbering; the DAC shows every sync, horizontal and
+vertical alike, three dots after the counter's number), a 23-dot
+serration blank, no burst on 244 to 246, and row 247 closing with an
+ordinary sync and burst. A real console's record shows the same (the
+broad pulse exactly one line after the preceding horizontal sync,
+0.934 line long, three a line apart). `ntsc-source-nes::segment` now
+emits that shape, pinned an edge at a time by
+`the_vertical_sync_is_the_dies`; the recovery's burst-free rows moved
+from 245..247 to 244..246 and its anchor edge (row 244's) is unchanged,
+so every recovered row keeps its number and the real records score as
+before. The old onset was 64 dots (0.19 line) late. Tagged 0.2.10.
