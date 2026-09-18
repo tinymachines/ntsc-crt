@@ -128,8 +128,11 @@ fn segments_carry_the_right_levels() {
 /// sync and burst. Each edge is pinned one dot either side.
 #[test]
 fn the_vertical_sync_is_the_dies() {
-    let want = Levels::transcribed();
-    let frame = encode_frame(&enc_levels(), &DotFrame::filled(FrameParity::Even, 0x0f, 0), Phase::new(0));
+    // The shape, not the levels: compared against the levels the frame
+    // was encoded with, so the levels mutation (segments_carry_the_right
+    // _levels is its red) leaves this one to say only where the sync is.
+    let want = enc_levels();
+    let frame = encode_frame(&want, &DotFrame::filled(FrameParity::Even, 0x0f, 0), Phase::new(0));
     let at = |row: usize, dot: usize| frame.lines[row].samples[dot * 8];
     let burst = |row: usize| {
         let v = at(row, 310);
