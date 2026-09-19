@@ -271,3 +271,69 @@ fn nes_auto_level_reads_between_the_codes_of_a_quantised_record() {
     assert!((blank - 88.45).abs() < 0.1, "blanking read at code {blank}, placed at 88.45");
     assert!(depth_err < 0.005, "sync depth {:.2}% off on a quantised record (MUTATE_LEVEL=1 is the median: red)", depth_err * 100.0);
 }
+
+/// Horizontal registration, whatever the frame's subcarrier origin. The
+/// NES starts each frame at one of three phases, a third of a cycle (4
+/// grid samples) apart, rotating frame to frame. The recovery used to
+/// assume origin 0 and let the burst lock slide every line of a frame
+/// that began elsewhere by 4 or 8 samples: colour still decoded right
+/// and every band INTERIOR still matched (the test above, whose chain
+/// was arranged so the anchored frame had origin 0), but the picture
+/// sat half a dot or a dot off. Found by nes's split-score, whose
+/// synthetic roundtrip correlated 0.77 with the model's frame and
+/// 1.0000 four samples over (2026-09-19). Here the anchored frame has
+/// each origin in turn; its luma edges must come back where the
+/// encoder put them (the best shift of a luma row within a sample) and
+/// the recovered frame must name the origin. MUTATE_ORIGIN=1 assumes 0
+/// and must be red.
+#[test]
+fn the_recovered_picture_sits_on_the_encoder_s_whatever_the_frame_s_origin() {
+    let levels = ntsc_source_nes::Levels::transcribed();
+    let mut dots = ntsc_testgen::solid(FrameParity::Even, 0x0f, 0);
+    // Alternating light and dark bands of uneven widths: luma edges
+    // every few dots, none of them periodic enough to alias a shift.
+    let widths = [7usize, 13, 5, 19, 11, 9, 23, 6, 17, 10];
+    for row in 0..240 {
+        let (mut dot, mut k) = (1usize, 0usize);
+        while dot < 257 {
+            let c = if k % 2 == 0 { 0x30u8 } else { 0x0f };
+            for d in dot..(dot + widths[k % widths.len()]).min(257) {
+                dots.set(row, d, c, 0);
+            }
+            dot += widths[k % widths.len()];
+            k += 1;
+        }
+    }
+    let dec = ntsc_decode::Decoder::transcribed(
+        ntsc_source_nes::burst_axis_offset(),
+        ntsc_source_nes::levels::LOW[1],
+        ntsc_source_nes::levels::HIGH[2],
+    );
+    let width = 2000usize;
+    for anchored in [0u8, 4, 8] {
+        let before = (anchored + 8) % 12;
+        let after = (anchored + 4) % 12;
+        let fb = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(before));
+        let fa = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(anchored));
+        let fn_ = ntsc_source_nes::encode_frame(&levels, &dots, Phase::new(after));
+        let cap = capture_model(&[&fb, &fa, &fn_], 50_000_000.0, 0.0, 0.0, 0.0, 3);
+        let rec = recover_nes(&cap);
+        let a = dec.decode_yuv(&rec.frame, 60, 100, width);
+        let b = dec.decode_yuv(&ntsc_source_cap::front_end(&fa), 60, 100, width);
+        let mut best = (0isize, f64::MAX);
+        for dx in -12isize..=12 {
+            let mut sum = 0.0f64;
+            for r in 0..100 {
+                for x in 40..width - 40 {
+                    sum += (a.y[r * width + (x as isize + dx) as usize] - b.y[r * width + x]).abs() as f64;
+                }
+            }
+            if sum < best.1 {
+                best = (dx, sum);
+            }
+        }
+        eprintln!("origin {anchored}: recovered origin {}, best luma shift {} samples", rec.frame.phase_at_origin.get(), best.0);
+        assert!(best.0.abs() <= 1, "origin {anchored}: the recovered picture sits {} samples off the encoder's (MUTATE_ORIGIN=1 assumes origin 0: red)", best.0);
+        assert_eq!(rec.frame.phase_at_origin.get(), anchored, "the recovered frame names its origin");
+    }
+}

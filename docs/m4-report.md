@@ -281,3 +281,25 @@ held by `nes_auto_level_reads_between_the_codes_of_a_quantised_record`
 a code and 0.45: read within a tenth of a code and the depth within
 half a percent; `MUTATE_LEVEL=1`, the median, is red at 2.2%). The
 continuous-volts test was blind to it by construction. Tagged 0.2.11.
+
+
+## Ninth addendum, 2026-09-19: the picture registered whatever the frame's phase
+
+The NES starts each frame at one of three subcarrier phases, a third
+of a cycle apart, and they rotate frame to frame. `recover_nes` locked
+every line's burst to origin 0 and handed back `phase_at_origin` 0, so
+a frame that began at 4 or 8 had every line slid 4 or 8 grid samples
+(half a dot or a whole one) to make the assumption true. Colour decoded
+right, since the lock put the burst where the decoder expected it, and
+every flat region scored as before; the synthetic test's chain had been
+arranged so the anchored frame was the origin-0 one. What saw it was a
+correlation of the whole picture: nes's split-score read 0.77 between
+its synthetic roundtrip and the model's own frame, and 1.0000 four
+samples over, and the part's first scrolling record read 0.93 unshifted
+and 0.95 two samples over. The recovery now measures the origin first
+(the burst's error with each line where its sync edge puts it, rounded
+to a multiple of four, by a vote over the frame), locks to it and names
+it in the frame, held by
+`the_recovered_picture_sits_on_the_encoder_s_whatever_the_frame_s_origin`
+(each origin in turn, the luma back within a sample of the encoder's,
+the origin named; `MUTATE_ORIGIN=1` is four samples off). Tagged 0.2.12.

@@ -368,6 +368,51 @@ pub fn recover_nes_with(cap: &Capture, lock_burst: bool) -> Recovered {
             .collect()
     };
     let burst_free = |row: usize| (nl::VSYNC_FIRST..=nl::VSYNC_LAST).contains(&row);
+    // The burst's phase error on a row, in grid samples (-6, 6], with the
+    // line placed at `delta` and the frame's origin taken as `origin`.
+    let burst_error = |row: usize, t0: f64, delta: f64, origin: usize| -> f64 {
+        let win = resample_line(t0, delta, nl::BURST_END + 12);
+        let (mut u, mut v) = (0.0f64, 0.0f64);
+        for (g, sample) in win.iter().enumerate().take(nl::BURST_END - 12).skip(nl::BURST_START + 12) {
+            // The NES phase at row r, sample g is (origin + 4r + g) mod
+            // 12: a line is 227 and a third cycles.
+            let p = (origin + 4 * row + g) as f64;
+            let th = std::f64::consts::TAU * p / 12.0;
+            u += *sample as f64 * th.sin();
+            v += *sample as f64 * th.cos();
+        }
+        let mut err = v.atan2(u) - target;
+        while err > std::f64::consts::PI {
+            err -= std::f64::consts::TAU;
+        }
+        while err < -std::f64::consts::PI {
+            err += std::f64::consts::TAU;
+        }
+        err / std::f64::consts::TAU * 12.0
+    };
+    // The frame's subcarrier origin. The NES starts each frame at one of
+    // three phases a third of a cycle apart (4 grid samples), and they
+    // rotate frame to frame; the sync edge places a line to well inside
+    // two samples, so the burst's error with the line where its sync
+    // puts it, rounded to a multiple of four, is the origin. Until
+    // 2026-09-19 the lock assumed origin 0 and slid every line of a frame
+    // that began elsewhere by 4 or 8 samples (half a dot or a dot) to
+    // make it so: colour decoded right, since the lock forced the burst
+    // onto the phase the decoder expected, but the picture sat off the
+    // model's, which flat regions cannot see and a correlation of the
+    // whole picture can (split-score's synthetic roundtrip read 0.77,
+    // and 1.0000 four samples over). MUTATE_ORIGIN=1 assumes 0 again.
+    let origin = if std::env::var("MUTATE_ORIGIN").is_ok_and(|m| m == "1") || !lock_burst {
+        0
+    } else {
+        let mut votes = [0usize; 3];
+        for row in (0..geo.lines()).filter(|r| !burst_free(*r)).step_by(8) {
+            let e = burst_error(row, line_starts[anchor_line + row], 0.0, 0);
+            let k = ((e / 4.0).round() as i64).rem_euclid(3) as usize;
+            votes[k] += 1;
+        }
+        4 * (0..3).max_by_key(|k| votes[*k]).unwrap()
+    };
     let mut lines = Vec::with_capacity(geo.lines());
     let mut delta = 0.0f64;
     let mut worst_residual = 0.0f64;
@@ -377,29 +422,7 @@ pub fn recover_nes_with(cap: &Capture, lock_burst: bool) -> Recovered {
         if lock_burst && !burst_free(row) {
             let mut residual = f64::MAX;
             for _ in 0..3 {
-                let win = resample_line(t0, delta, nl::BURST_END + 12);
-                let (mut u, mut v) = (0.0f64, 0.0f64);
-                for (g, sample) in win
-                    .iter()
-                    .enumerate()
-                    .take(nl::BURST_END - 12)
-                    .skip(nl::BURST_START + 12)
-                {
-                    // The NES phase at row r, sample g is (4r + g) mod
-                    // 12: a line is 227 and a third cycles.
-                    let p = (4 * row + g) as f64;
-                    let th = std::f64::consts::TAU * p / 12.0;
-                    u += *sample as f64 * th.sin();
-                    v += *sample as f64 * th.cos();
-                }
-                let mut err = v.atan2(u) - target;
-                while err > std::f64::consts::PI {
-                    err -= std::f64::consts::TAU;
-                }
-                while err < -std::f64::consts::PI {
-                    err += std::f64::consts::TAU;
-                }
-                residual = err / std::f64::consts::TAU * 12.0;
+                residual = burst_error(row, t0, delta, origin);
                 delta -= residual;
                 if residual.abs() < 0.01 {
                     break;
@@ -440,7 +463,7 @@ pub fn recover_nes_with(cap: &Capture, lock_burst: bool) -> Recovered {
             profile: geo,
             lines,
             frame_parity: FrameParity::Even,
-            phase_at_origin: Phase::new(0),
+            phase_at_origin: Phase::new(origin as u8),
         },
         rate_error_ppm,
         worst_burst_residual: worst_residual,
