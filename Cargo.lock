@@ -66,8 +66,8 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "nes-bus"
-version = "0.1.2"
-source = "git+https://github.com/tinymachines/nes-bus?tag=v0.1.2#220ebf8913205c472c56a4d725da1e970b328cc0"
+version = "0.1.3"
+source = "git+https://github.com/tinymachines/nes-bus?tag=v0.1.3#02f1d5d5e4b3a617dfd3e1d138149510b36f183b"
 
 [[package]]
 name = "ntsc-crt"
