@@ -1,0 +1,13 @@
+[package]
+name = "ntsc-wire"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A DotFrame on a wire: every dot the encoder reads and none it does not, delta-coded against the previous frame, deflated, checksummed, with the chained phase carried so a late joiner can start cold."
+
+[dependencies]
+nes-bus = { git = "https://github.com/tinymachines/nes-bus", tag = "v0.1.8" }
+ntsc-grid = { path = "../ntsc-grid" }
+ntsc-source-nes = { path = "../ntsc-source-nes" }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+crc32fast = "1"

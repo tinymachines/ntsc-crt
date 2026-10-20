@@ -10,4 +10,5 @@ members = [
     "crates/ntsc-wasm",
     "crates/ntsc-crt",
     "crates/ntsc-source-cap",
+    "crates/ntsc-wire",
 ]
