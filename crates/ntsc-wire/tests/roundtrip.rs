@@ -387,3 +387,24 @@ fn print_sizes() {
         mask().dots.len()
     );
 }
+
+#[test]
+#[ignore]
+fn print_worst_case_key() {
+    // The bound, not a scene: every picture dot a different colour and
+    // emphasis from its neighbours, drawn from a generator.
+    let mut rng = Lcg(0xbad);
+    let mut f = DotFrame::filled(FrameParity::Even, 0, 0);
+    for row in 0..LINES {
+        for dot in 0..DOTS_PER_LINE {
+            let r = rng.next();
+            f.set(row, dot, (r & 0x3f) as u8, ((r >> 6) & 7) as u8);
+        }
+    }
+    let mut tx = Sender::new(1);
+    let n = tx.encode(&f, Phase::new(0)).len();
+    eprintln!(
+        "worst-case key (noise, per-dot emphasis): {n} B of {} raw",
+        mask().dots.len() * 2
+    );
+}
